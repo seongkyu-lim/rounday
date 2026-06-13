@@ -26,4 +26,5 @@ node --check app.js
 
 ## 배포
 
-GitHub Pages workflow는 `.github/workflows/pages.yml`에 포함되어 있습니다.
+현재 private repository 플랜에서는 GitHub Pages가 지원되지 않을 수 있습니다.
+배포 전 검증 workflow는 `.github/workflows/ci.yml`에 포함되어 있습니다.
