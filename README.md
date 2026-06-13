@@ -16,3 +16,14 @@
 ## 실행
 
 브라우저에서 `index.html`을 열면 됩니다.
+
+## 검증
+
+```bash
+npm test
+node --check app.js
+```
+
+## 배포
+
+GitHub Pages workflow는 `.github/workflows/pages.yml`에 포함되어 있습니다.
