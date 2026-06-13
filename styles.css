@@ -181,6 +181,12 @@ label {
   font-weight: 700;
 }
 
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
 input,
 select {
   width: 100%;
@@ -197,6 +203,13 @@ input:focus,
 select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(36, 107, 95, 0.14);
+}
+
+.check-row input {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
+  accent-color: var(--accent);
 }
 
 .two-cols {
@@ -321,6 +334,16 @@ select:focus {
 .actions {
   display: flex;
   gap: 8px;
+}
+
+.mini-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.mini-actions .icon-button {
+  width: 34px;
+  height: 34px;
 }
 
 .planner-layout {
