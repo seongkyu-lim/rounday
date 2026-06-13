@@ -378,6 +378,59 @@ function renderStats() {
   $("#blockCount").textContent = events.length;
 }
 
+function getFreeSlots() {
+  const busy = events
+    .flatMap((event) => {
+      const start = timeToMinutes(event.start);
+      const end = timeToMinutes(event.end);
+      return end > start
+        ? [{ start, end }]
+        : [
+            { start, end: 1440 },
+            { start: 0, end },
+          ];
+    })
+    .sort((a, b) => a.start - b.start);
+
+  const merged = [];
+  busy.forEach((slot) => {
+    const last = merged[merged.length - 1];
+    if (!last || slot.start > last.end) merged.push({ ...slot });
+    else last.end = Math.max(last.end, slot.end);
+  });
+
+  const free = [];
+  let cursor = 0;
+  merged.forEach((slot) => {
+    if (slot.start > cursor) free.push({ start: cursor, end: slot.start });
+    cursor = Math.max(cursor, slot.end);
+  });
+  if (cursor < 1440) free.push({ start: cursor, end: 1440 });
+  return free;
+}
+
+function renderInsights() {
+  const list = $("#insightList");
+  list.replaceChildren();
+  const planned = events.reduce((sum, event) => sum + durationOf(event), 0);
+  const focus = events.filter((event) => event.type === "focus").reduce((sum, event) => sum + durationOf(event), 0);
+  const rest = events.filter((event) => event.type === "rest").reduce((sum, event) => sum + durationOf(event), 0);
+  const longestFree = getFreeSlots().sort((a, b) => b.end - b.start - (a.end - a.start))[0];
+  const insights = [
+    `집중 ${formatDuration(focus)} · 휴식 ${formatDuration(rest)}`,
+    longestFree ? `가장 긴 빈 시간 ${minutesToLabel(longestFree.start)}-${minutesToLabel(longestFree.end)} (${formatDuration(longestFree.end - longestFree.start)})` : "빈 시간이 없습니다.",
+  ];
+  if (planned > 1080) insights.push("계획이 18시간을 넘었습니다. 완충 시간을 줄 수 있게 조정하세요.");
+  if (detectConflicts().size > 0) insights.push("겹치는 일정이 있어 실제 실행 시간이 흔들릴 수 있습니다.");
+
+  insights.forEach((text) => {
+    const item = document.createElement("div");
+    item.className = `insight-item ${text.includes("넘었습니다") || text.includes("겹치는") ? "warn" : ""}`;
+    item.textContent = text;
+    list.appendChild(item);
+  });
+}
+
 function renderPersistenceStatus() {
   const savedAt = lastSave?.savedAt || state.updatedAt;
   const label = savedAt ? new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
@@ -429,6 +482,7 @@ function renderAll() {
   renderProfileControls();
   renderAccountControls();
   renderPersistenceStatus();
+  renderInsights();
   renderClock();
   renderTimeline();
   renderStats();

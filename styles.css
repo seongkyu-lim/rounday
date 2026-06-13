@@ -424,6 +424,28 @@ select:focus {
   gap: 10px;
 }
 
+.insight-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.insight-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #faf7ed;
+  padding: 10px;
+  color: #394044;
+  font-size: 0.83rem;
+  font-weight: 700;
+}
+
+.insight-item.warn {
+  border-color: #efb4aa;
+  background: #fff0ed;
+  color: var(--danger);
+}
+
 .timeline-empty {
   padding: 22px 8px;
   color: var(--muted);
