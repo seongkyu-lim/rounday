@@ -31,8 +31,8 @@ const templates = {
   ],
 };
 
-let state = loadSharedState() || loadState();
-let events = activeProfile().events;
+let state = null;
+let events = [];
 let selectedColor = palette[0];
 let activeEventId = "";
 let draftSelection = null;
@@ -58,6 +58,9 @@ let lastSave = null;
 let serverSyncTimer = null;
 let syncMessage = "";
 const canUseServer = location.protocol !== "file:";
+
+state = loadSharedState() || loadState();
+events = activeProfile().events;
 
 function cloneEvents(source) {
   return source.map((event) => ({ ...event, id: crypto.randomUUID(), repeat: Boolean(event.repeat) }));
@@ -873,8 +876,34 @@ function updateCurrentTime() {
   $("#currentTime").textContent = minutesToLabel(now.getHours() * 60 + now.getMinutes());
 }
 
+const iconFallbacks = {
+  "copy-plus": "+",
+  "trash-2": "x",
+  "log-in": ">",
+  "log-out": "<",
+  "x": "x",
+  "plus": "+",
+  "upload": "^",
+  "link": "#",
+  "image-down": "[]",
+  "printer": "P",
+  "download": "v",
+  "rotate-ccw": "R",
+  "pencil": "/",
+};
+
 function refreshIcons() {
-  if (window.lucide) window.lucide.createIcons();
+  if (window.lucide) {
+    window.lucide.createIcons();
+    return;
+  }
+
+  document.querySelectorAll("[data-lucide]").forEach((icon) => {
+    if (icon.dataset.fallbackReady === "true") return;
+    icon.textContent = iconFallbacks[icon.dataset.lucide] || "*";
+    icon.classList.add("icon-fallback");
+    icon.dataset.fallbackReady = "true";
+  });
 }
 
 document.querySelectorAll("[data-template]").forEach((button) => {
