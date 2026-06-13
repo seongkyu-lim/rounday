@@ -31,6 +31,9 @@ const templates = {
 
 let events = loadEvents();
 let selectedColor = palette[0];
+let activeEventId = "";
+let draftSelection = null;
+let dragState = null;
 
 const $ = (selector) => document.querySelector(selector);
 const clockSvg = $("#clockSvg");
@@ -87,6 +90,18 @@ function arcPath(cx, cy, radius, startMinutes, endMinutes) {
   return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`;
 }
 
+function snapMinutes(minutes, step = 15) {
+  return Math.round(minutes / step) * step;
+}
+
+function pointToMinutes(clientX, clientY) {
+  const rect = clockSvg.getBoundingClientRect();
+  const x = ((clientX - rect.left) / rect.width) * 620 - 310;
+  const y = ((clientY - rect.top) / rect.height) * 620 - 310;
+  const degrees = (Math.atan2(y, x) * 180) / Math.PI;
+  return ((snapMinutes(((degrees + 90 + 360) % 360) * 4) % 1440) + 1440) % 1440;
+}
+
 function svgEl(tag, attrs = {}) {
   const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
   Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
@@ -129,9 +144,22 @@ function renderClock() {
       "stroke-width": 38,
       "data-id": event.id,
     });
+    if (event.id === activeEventId) path.classList.add("active");
+    path.addEventListener("pointerdown", (pointerEvent) => pointerEvent.stopPropagation());
     path.addEventListener("click", () => editEvent(event.id));
     clockSvg.appendChild(path);
   });
+
+  if (draftSelection) {
+    clockSvg.appendChild(
+      svgEl("path", {
+        d: arcPath(310, 310, 218, draftSelection.start, draftSelection.end),
+        class: "draft-arc",
+        stroke: selectedColor,
+        "stroke-width": 46,
+      }),
+    );
+  }
 
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
@@ -193,7 +221,9 @@ function renderTimeline() {
 
   [...events].sort(sortByStart).forEach((event) => {
     const card = document.createElement("article");
-    card.className = "event-card";
+    card.className = `event-card ${event.id === activeEventId ? "active" : ""}`;
+    card.tabIndex = 0;
+    card.dataset.card = event.id;
     card.style.setProperty("--event-color", event.color);
     card.innerHTML = `
       <div class="event-strip"></div>
@@ -209,6 +239,17 @@ function renderTimeline() {
     list.appendChild(card);
   });
 
+  document.querySelectorAll("[data-card]").forEach((card) => {
+    card.addEventListener("click", (event) => {
+      if (event.target.closest("button")) return;
+      editEvent(card.dataset.card);
+    });
+    card.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      editEvent(card.dataset.card);
+    });
+  });
   document.querySelectorAll("[data-edit]").forEach((button) => {
     button.addEventListener("click", () => editEvent(button.dataset.edit));
   });
@@ -259,6 +300,21 @@ function renderAll() {
   refreshIcons();
 }
 
+function applyClockSelection(start, end) {
+  const normalizedEnd = start === end ? (start + 60) % 1440 : end;
+  $("#eventId").value = "";
+  $("#startInput").value = minutesToLabel(start);
+  $("#endInput").value = minutesToLabel(normalizedEnd);
+  $("#formTitle").textContent = "일정 추가";
+  $("#submitText").textContent = "추가하기";
+  $("#cancelEdit").classList.remove("hidden");
+  activeEventId = "";
+  draftSelection = null;
+  formError.textContent = "";
+  renderClock();
+  renderTimeline();
+}
+
 function validateEvent(data) {
   if (!data.title.trim()) return "일정 이름을 입력하세요.";
   if (data.start === data.end) return "시작과 종료 시간이 같을 수 없습니다.";
@@ -297,12 +353,15 @@ function editEvent(id) {
   $("#endInput").value = event.end;
   $("#typeInput").value = event.type;
   selectedColor = event.color;
+  activeEventId = id;
+  draftSelection = null;
   $("#formTitle").textContent = "일정 수정";
   $("#submitText").textContent = "수정하기";
   $("#cancelEdit").classList.remove("hidden");
   formError.textContent = "";
   renderSwatches();
-  document.querySelectorAll(".event-arc").forEach((path) => path.classList.toggle("active", path.dataset.id === id));
+  renderClock();
+  renderTimeline();
 }
 
 function deleteEvent(id) {
@@ -317,11 +376,15 @@ function resetForm() {
   $("#startInput").value = "09:00";
   $("#endInput").value = "10:00";
   selectedColor = palette[0];
+  activeEventId = "";
+  draftSelection = null;
   $("#formTitle").textContent = "일정 추가";
   $("#submitText").textContent = "추가하기";
   $("#cancelEdit").classList.add("hidden");
   formError.textContent = "";
   renderSwatches();
+  renderClock();
+  renderTimeline();
 }
 
 function applyTemplate(name) {
@@ -371,6 +434,48 @@ $("#resetBtn").addEventListener("click", () => {
   renderAll();
 });
 $("#cancelEdit").addEventListener("click", resetForm);
+
+clockSvg.addEventListener("pointerdown", (event) => {
+  if (event.target.closest(".event-arc")) return;
+  const start = pointToMinutes(event.clientX, event.clientY);
+  dragState = { start, pointerId: event.pointerId };
+  draftSelection = { start, end: (start + 60) % 1440 };
+  clockSvg.setPointerCapture(event.pointerId);
+  renderClock();
+});
+
+clockSvg.addEventListener("pointermove", (event) => {
+  if (!dragState || dragState.pointerId !== event.pointerId) return;
+  const end = pointToMinutes(event.clientX, event.clientY);
+  draftSelection = { start: dragState.start, end: end === dragState.start ? (end + 60) % 1440 : end };
+  renderClock();
+});
+
+clockSvg.addEventListener("pointerup", (event) => {
+  if (!dragState || dragState.pointerId !== event.pointerId) return;
+  const end = pointToMinutes(event.clientX, event.clientY);
+  const start = dragState.start;
+  dragState = null;
+  clockSvg.releasePointerCapture(event.pointerId);
+  applyClockSelection(start, end);
+});
+
+clockSvg.addEventListener("pointercancel", () => {
+  dragState = null;
+  draftSelection = null;
+  renderClock();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    resetForm();
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    event.preventDefault();
+    form.requestSubmit();
+  }
+});
 
 resetForm();
 renderAll();
