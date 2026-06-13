@@ -609,3 +609,34 @@ select:focus {
     grid-template-columns: 1fr;
   }
 }
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .sidebar,
+  .actions,
+  .timeline .card-actions {
+    display: none;
+  }
+
+  .app-shell,
+  .planner-layout {
+    display: block;
+  }
+
+  .main {
+    padding: 0;
+  }
+
+  .topbar {
+    margin-bottom: 12px;
+  }
+
+  .timeline {
+    border: 0;
+    box-shadow: none;
+    max-height: none;
+  }
+}
