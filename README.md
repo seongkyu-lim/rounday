@@ -24,6 +24,17 @@ npm test
 node --check app.js
 ```
 
+## GitHub 저장 설정
+
+Rounday는 GitHub OAuth PKCE 로그인 후 사용자가 선택한 repo에 날짜별 JSON을 저장할 수 있습니다.
+
+1. GitHub OAuth App을 생성합니다.
+2. Authorization callback URL은 배포된 `index.html` 경로와 동일하게 맞춥니다.
+3. `config.example.js`를 `config.js`로 복사하고 `githubClientId`를 입력합니다.
+4. `config.js`는 commit하지 않습니다.
+
+앱 안에서 Client ID를 직접 입력해도 됩니다. 저장 파일은 `data/schedules/YYYY/MM/YYYY-MM-DD.json` 경로에 commit됩니다.
+
 ## 배포
 
 현재 private repository 플랜에서는 GitHub Pages가 지원되지 않을 수 있습니다.
