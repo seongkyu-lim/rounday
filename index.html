@@ -41,6 +41,26 @@
 
         <section class="panel compact">
           <div class="section-title">
+            <h2>계정</h2>
+            <span id="accountState">오프라인</span>
+          </div>
+          <label>
+            이메일
+            <input id="accountEmailInput" type="email" placeholder="you@example.com" />
+          </label>
+          <div class="account-actions">
+            <button class="primary-button" type="button" id="signInBtn">
+              <i data-lucide="log-in"></i>
+              로그인
+            </button>
+            <button class="icon-button" type="button" id="signOutBtn" aria-label="로그아웃">
+              <i data-lucide="log-out"></i>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel compact">
+          <div class="section-title">
             <h2>오늘의 리듬</h2>
             <span id="completionText">0%</span>
           </div>
