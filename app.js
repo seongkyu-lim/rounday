@@ -1,4 +1,5 @@
-const STORAGE_KEY = "rounday-events-v1";
+const STORAGE_KEY = "rounday-events-v2";
+const LEGACY_STORAGE_KEY = "rounday-events-v1";
 const palette = ["#e35d4f", "#f3ad3e", "#246b5f", "#3078b8", "#7d5cc6", "#2f9f9b", "#d85d90"];
 
 const defaultEvents = [
@@ -29,7 +30,8 @@ const templates = {
   ],
 };
 
-let events = loadEvents();
+let state = loadState();
+let events = activeProfile().events;
 let selectedColor = palette[0];
 let activeEventId = "";
 let draftSelection = null;
@@ -40,19 +42,86 @@ const clockSvg = $("#clockSvg");
 const form = $("#eventForm");
 const formError = $("#formError");
 
-function loadEvents() {
+function cloneEvents(source) {
+  return source.map((event) => ({ ...event, id: crypto.randomUUID(), repeat: Boolean(event.repeat) }));
+}
+
+function createProfile(name, source = []) {
+  return {
+    id: crypto.randomUUID(),
+    name,
+    events: cloneEvents(source),
+  };
+}
+
+function normalizeEvent(event) {
+  return {
+    id: typeof event.id === "string" ? event.id : crypto.randomUUID(),
+    title: typeof event.title === "string" ? event.title.slice(0, 28) : "새 일정",
+    start: typeof event.start === "string" ? event.start : "09:00",
+    end: typeof event.end === "string" ? event.end : "10:00",
+    type: ["focus", "health", "life", "learn", "rest"].includes(event.type) ? event.type : "focus",
+    color: palette.includes(event.color) ? event.color : palette[0],
+    repeat: Boolean(event.repeat),
+  };
+}
+
+function normalizeState(candidate) {
+  if (Array.isArray(candidate)) {
+    const profile = createProfile("기본 하루", candidate.map(normalizeEvent));
+    return { activeProfileId: profile.id, profiles: [profile] };
+  }
+
+  const profiles = Array.isArray(candidate?.profiles)
+    ? candidate.profiles.map((profile, index) => ({
+        id: typeof profile.id === "string" ? profile.id : crypto.randomUUID(),
+        name: typeof profile.name === "string" && profile.name.trim() ? profile.name.trim().slice(0, 24) : `프로필 ${index + 1}`,
+        events: Array.isArray(profile.events) ? profile.events.map(normalizeEvent) : [],
+      }))
+    : [];
+
+  if (!profiles.length) {
+    const profile = createProfile("기본 하루", defaultEvents);
+    return { activeProfileId: profile.id, profiles: [profile] };
+  }
+
+  const activeProfileId = profiles.some((profile) => profile.id === candidate?.activeProfileId) ? candidate.activeProfileId : profiles[0].id;
+  return { activeProfileId, profiles };
+}
+
+function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return defaultEvents;
+  const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (!raw && legacy) {
+    try {
+      return normalizeState(JSON.parse(legacy));
+    } catch {
+      return normalizeState(null);
+    }
+  }
+  if (!raw) return normalizeState(null);
   try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : defaultEvents;
+    return normalizeState(JSON.parse(raw));
   } catch {
-    return defaultEvents;
+    return normalizeState(null);
   }
 }
 
-function saveEvents() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+function activeProfile() {
+  return state.profiles.find((profile) => profile.id === state.activeProfileId) || state.profiles[0];
+}
+
+function syncActiveEvents() {
+  events = activeProfile().events;
+}
+
+function setEvents(nextEvents) {
+  activeProfile().events = nextEvents;
+  syncActiveEvents();
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 function timeToMinutes(time) {
@@ -229,7 +298,7 @@ function renderTimeline() {
       <div class="event-strip"></div>
       <div>
         <h3>${escapeHtml(event.title)}${conflicts.has(event.id) ? " · 겹침" : ""}</h3>
-        <p>${event.start} - ${event.end} · ${formatDuration(durationOf(event))}</p>
+        <p>${event.start} - ${event.end} · ${formatDuration(durationOf(event))}${event.repeat ? " · 반복" : ""}</p>
       </div>
       <div class="card-actions">
         <button class="icon-button" type="button" aria-label="일정 편집" data-edit="${event.id}"><i data-lucide="pencil"></i></button>
@@ -291,8 +360,24 @@ function renderSwatches() {
   });
 }
 
+function renderProfileControls() {
+  const profile = activeProfile();
+  const select = $("#profileSelect");
+  select.replaceChildren();
+  state.profiles.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = item.name;
+    option.selected = item.id === profile.id;
+    select.appendChild(option);
+  });
+  $("#profileNameInput").value = profile.name;
+  $("#deleteProfileBtn").disabled = state.profiles.length < 2;
+}
+
 function renderAll() {
-  saveEvents();
+  saveState();
+  renderProfileControls();
   renderClock();
   renderTimeline();
   renderStats();
@@ -305,6 +390,7 @@ function applyClockSelection(start, end) {
   $("#eventId").value = "";
   $("#startInput").value = minutesToLabel(start);
   $("#endInput").value = minutesToLabel(normalizedEnd);
+  $("#repeatInput").checked = false;
   $("#formTitle").textContent = "일정 추가";
   $("#submitText").textContent = "추가하기";
   $("#cancelEdit").classList.remove("hidden");
@@ -317,8 +403,11 @@ function applyClockSelection(start, end) {
 
 function validateEvent(data) {
   if (!data.title.trim()) return "일정 이름을 입력하세요.";
+  if (!/^\d{2}:\d{2}$/.test(data.start) || !/^\d{2}:\d{2}$/.test(data.end)) return "시간 형식이 올바르지 않습니다.";
+  if (!palette.includes(data.color)) return "사용할 수 없는 색상입니다.";
   if (data.start === data.end) return "시작과 종료 시간이 같을 수 없습니다.";
   if (durationOf(data) < 15) return "15분 이상으로 입력하세요.";
+  if (durationOf(data) > 960) return "하나의 일정은 16시간 이하로 입력하세요.";
   return "";
 }
 
@@ -332,6 +421,7 @@ form.addEventListener("submit", (event) => {
     end: $("#endInput").value,
     type: $("#typeInput").value,
     color: selectedColor,
+    repeat: $("#repeatInput").checked,
   };
   const error = validateEvent(data);
   formError.textContent = error;
@@ -340,6 +430,7 @@ form.addEventListener("submit", (event) => {
   const existing = events.findIndex((item) => item.id === id);
   if (existing >= 0) events[existing] = data;
   else events.push(data);
+  setEvents(events);
   resetForm();
   renderAll();
 });
@@ -352,6 +443,7 @@ function editEvent(id) {
   $("#startInput").value = event.start;
   $("#endInput").value = event.end;
   $("#typeInput").value = event.type;
+  $("#repeatInput").checked = Boolean(event.repeat);
   selectedColor = event.color;
   activeEventId = id;
   draftSelection = null;
@@ -365,7 +457,7 @@ function editEvent(id) {
 }
 
 function deleteEvent(id) {
-  events = events.filter((event) => event.id !== id);
+  setEvents(events.filter((event) => event.id !== id));
   resetForm();
   renderAll();
 }
@@ -375,6 +467,7 @@ function resetForm() {
   $("#eventId").value = "";
   $("#startInput").value = "09:00";
   $("#endInput").value = "10:00";
+  $("#repeatInput").checked = false;
   selectedColor = palette[0];
   activeEventId = "";
   draftSelection = null;
@@ -389,23 +482,67 @@ function resetForm() {
 
 function applyTemplate(name) {
   if (name === "reset") {
-    events = [];
+    setEvents([]);
   } else {
-    events = templates[name].map(([title, start, end, type, color]) => ({
+    setEvents(templates[name].map(([title, start, end, type, color]) => ({
       id: crypto.randomUUID(),
       title,
       start,
       end,
       type,
       color,
-    }));
+      repeat: true,
+    })));
   }
   resetForm();
   renderAll();
 }
 
+function addProfile() {
+  const next = createProfile(`프로필 ${state.profiles.length + 1}`, events);
+  state.profiles.push(next);
+  state.activeProfileId = next.id;
+  syncActiveEvents();
+  resetForm();
+  renderAll();
+}
+
+function deleteProfile() {
+  if (state.profiles.length < 2) return;
+  state.profiles = state.profiles.filter((profile) => profile.id !== state.activeProfileId);
+  state.activeProfileId = state.profiles[0].id;
+  syncActiveEvents();
+  resetForm();
+  renderAll();
+}
+
+function renameActiveProfile(name) {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  activeProfile().name = trimmed.slice(0, 24);
+  renderAll();
+}
+
+function importJson(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    try {
+      state = normalizeState(JSON.parse(reader.result));
+      syncActiveEvents();
+      resetForm();
+      renderAll();
+    } catch {
+      formError.textContent = "JSON 파일을 읽을 수 없습니다.";
+    } finally {
+      $("#importInput").value = "";
+    }
+  });
+  reader.readAsText(file);
+}
+
 function downloadJson() {
-  const blob = new Blob([JSON.stringify(events, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -429,11 +566,22 @@ document.querySelectorAll("[data-template]").forEach((button) => {
 
 $("#downloadBtn").addEventListener("click", downloadJson);
 $("#resetBtn").addEventListener("click", () => {
-  events = defaultEvents.map((event) => ({ ...event, id: crypto.randomUUID() }));
+  setEvents(cloneEvents(defaultEvents));
   resetForm();
   renderAll();
 });
 $("#cancelEdit").addEventListener("click", resetForm);
+$("#addProfileBtn").addEventListener("click", addProfile);
+$("#deleteProfileBtn").addEventListener("click", deleteProfile);
+$("#profileSelect").addEventListener("change", (event) => {
+  state.activeProfileId = event.target.value;
+  syncActiveEvents();
+  resetForm();
+  renderAll();
+});
+$("#profileNameInput").addEventListener("change", (event) => renameActiveProfile(event.target.value));
+$("#importBtn").addEventListener("click", () => $("#importInput").click());
+$("#importInput").addEventListener("change", (event) => importJson(event.target.files[0]));
 
 clockSvg.addEventListener("pointerdown", (event) => {
   if (event.target.closest(".event-arc")) return;
