@@ -18,7 +18,7 @@
   <description>Circular daily planner with Spring Boot and MySQL persistence</description>
 
   <properties>
-    <java.version>21</java.version>
+    <java.version>17</java.version>
   </properties>
 
   <dependencies>
