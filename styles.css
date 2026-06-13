@@ -353,6 +353,12 @@ select:focus {
   height: 34px;
 }
 
+.account-actions {
+  display: grid;
+  grid-template-columns: 1fr 42px;
+  gap: 8px;
+}
+
 .planner-layout {
   display: grid;
   grid-template-columns: minmax(420px, 1fr) 340px;
