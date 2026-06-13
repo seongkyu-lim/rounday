@@ -11,7 +11,7 @@
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar" aria-label="시간표 설정">
+      <aside class="sidebar" id="editorPanel" aria-label="시간표 설정">
         <div class="brand">
           <div class="brand-mark">24</div>
           <div>
@@ -226,7 +226,7 @@
         </header>
 
         <section class="planner-layout">
-          <div class="clock-wrap" aria-label="원형 시간표">
+          <div class="clock-wrap" id="clockPanel" aria-label="원형 시간표">
             <svg id="clockSvg" viewBox="0 0 620 620" role="img" aria-labelledby="clockTitle clockDesc">
               <title id="clockTitle">원형 하루 시간표</title>
               <desc id="clockDesc">0시부터 24시까지의 일정 블록을 원형으로 표시합니다.</desc>
@@ -237,7 +237,7 @@
             </div>
           </div>
 
-          <aside class="timeline panel" aria-label="일정 목록">
+          <aside class="timeline panel" id="timelinePanel" aria-label="일정 목록">
             <div class="section-title">
               <h2>일정 목록</h2>
               <span id="conflictBadge" class="badge hidden">겹침</span>
@@ -248,6 +248,20 @@
         </section>
       </main>
     </div>
+    <nav class="mobile-nav" aria-label="앱 내비게이션">
+      <button type="button" data-scroll-target="editorPanel">
+        <i data-lucide="sliders-horizontal"></i>
+        <span>편집</span>
+      </button>
+      <button type="button" data-scroll-target="clockPanel">
+        <i data-lucide="clock-3"></i>
+        <span>원형표</span>
+      </button>
+      <button type="button" data-scroll-target="timelinePanel">
+        <i data-lucide="list-todo"></i>
+        <span>목록</span>
+      </button>
+    </nav>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="./config.js"></script>
