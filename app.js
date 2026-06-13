@@ -1,5 +1,6 @@
 const STORAGE_KEY = "rounday-events-v2";
 const LEGACY_STORAGE_KEY = "rounday-events-v1";
+const SCHEMA_VERSION = 2;
 const palette = ["#e35d4f", "#f3ad3e", "#246b5f", "#3078b8", "#7d5cc6", "#2f9f9b", "#d85d90"];
 
 const defaultEvents = [
@@ -41,6 +42,19 @@ const $ = (selector) => document.querySelector(selector);
 const clockSvg = $("#clockSvg");
 const form = $("#eventForm");
 const formError = $("#formError");
+const storageAdapter = {
+  load() {
+    return localStorage.getItem(STORAGE_KEY);
+  },
+  loadLegacy() {
+    return localStorage.getItem(LEGACY_STORAGE_KEY);
+  },
+  save(nextState) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+    return { provider: "local", savedAt: nextState.updatedAt };
+  },
+};
+let lastSave = null;
 
 function cloneEvents(source) {
   return source.map((event) => ({ ...event, id: crypto.randomUUID(), repeat: Boolean(event.repeat) }));
@@ -69,7 +83,7 @@ function normalizeEvent(event) {
 function normalizeState(candidate) {
   if (Array.isArray(candidate)) {
     const profile = createProfile("기본 하루", candidate.map(normalizeEvent));
-    return { activeProfileId: profile.id, profiles: [profile] };
+    return createState([profile], profile.id);
   }
 
   const profiles = Array.isArray(candidate?.profiles)
@@ -82,16 +96,30 @@ function normalizeState(candidate) {
 
   if (!profiles.length) {
     const profile = createProfile("기본 하루", defaultEvents);
-    return { activeProfileId: profile.id, profiles: [profile] };
+    return createState([profile], profile.id);
   }
 
   const activeProfileId = profiles.some((profile) => profile.id === candidate?.activeProfileId) ? candidate.activeProfileId : profiles[0].id;
-  return { activeProfileId, profiles };
+  return createState(profiles, activeProfileId, candidate);
+}
+
+function createState(profiles, activeProfileId, source = {}) {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    userId: typeof source.userId === "string" ? source.userId : null,
+    activeProfileId,
+    profiles,
+    updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : new Date().toISOString(),
+    sync: {
+      provider: source.sync?.provider || "local",
+      lastSyncedAt: source.sync?.lastSyncedAt || null,
+    },
+  };
 }
 
 function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+  const raw = storageAdapter.load();
+  const legacy = storageAdapter.loadLegacy();
   if (!raw && legacy) {
     try {
       return normalizeState(JSON.parse(legacy));
@@ -121,7 +149,8 @@ function setEvents(nextEvents) {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  state.updatedAt = new Date().toISOString();
+  lastSave = storageAdapter.save(state);
 }
 
 function timeToMinutes(time) {
@@ -343,6 +372,12 @@ function renderStats() {
   $("#blockCount").textContent = events.length;
 }
 
+function renderPersistenceStatus() {
+  const savedAt = lastSave?.savedAt || state.updatedAt;
+  const label = savedAt ? new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
+  $("#syncStatus").textContent = `${state.sync.provider === "local" ? "로컬 저장" : "동기화"} · ${label}`;
+}
+
 function renderSwatches() {
   const swatches = $("#swatches");
   swatches.replaceChildren();
@@ -378,6 +413,7 @@ function renderProfileControls() {
 function renderAll() {
   saveState();
   renderProfileControls();
+  renderPersistenceStatus();
   renderClock();
   renderTimeline();
   renderStats();
