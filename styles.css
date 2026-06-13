@@ -296,6 +296,10 @@ select:focus {
   padding: 16px;
 }
 
+.template-list.flush {
+  padding: 0;
+}
+
 .template-list button,
 .custom-template-list button {
   min-height: 40px;

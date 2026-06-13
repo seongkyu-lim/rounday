@@ -1,6 +1,9 @@
 const STORAGE_KEY = "rounday-events-v2";
 const LEGACY_STORAGE_KEY = "rounday-events-v1";
 const SCHEMA_VERSION = 2;
+const GITHUB_TOKEN_KEY = "rounday-github-token";
+const GITHUB_PKCE_KEY = "rounday-github-pkce";
+const GITHUB_CONFIG_KEY = "rounday-github-config";
 const palette = ["#e35d4f", "#f3ad3e", "#246b5f", "#3078b8", "#7d5cc6", "#2f9f9b", "#d85d90"];
 
 const defaultEvents = [
@@ -55,6 +58,62 @@ const storageAdapter = {
   },
 };
 let lastSave = null;
+
+function getGithubConfig() {
+  try {
+    return JSON.parse(localStorage.getItem(GITHUB_CONFIG_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveGithubConfig(config) {
+  localStorage.setItem(GITHUB_CONFIG_KEY, JSON.stringify(config));
+}
+
+function getGithubToken() {
+  return sessionStorage.getItem(GITHUB_TOKEN_KEY);
+}
+
+function base64Url(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function sha256(value) {
+  return crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+}
+
+function randomString(length = 64) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+  const values = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(values, (value) => alphabet[value % alphabet.length]).join("");
+}
+
+function base64Json(value) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(value, null, 2))));
+}
+
+function parseBase64Json(value) {
+  return JSON.parse(decodeURIComponent(escape(atob(value))));
+}
+
+async function githubRequest(path, options = {}) {
+  const token = getGithubToken();
+  if (!token) throw new Error("GitHub 로그인이 필요합니다.");
+  const response = await fetch(`https://api.github.com${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(options.headers || {}),
+    },
+  });
+  const body = response.status === 204 ? null : await response.json().catch(() => null);
+  if (!response.ok) throw new Error(body?.message || "GitHub API 요청에 실패했습니다.");
+  return body;
+}
 
 function cloneEvents(source) {
   return source.map((event) => ({ ...event, id: crypto.randomUUID(), repeat: Boolean(event.repeat) }));
@@ -521,6 +580,7 @@ function renderAll() {
   renderProfileControls();
   renderCustomTemplates();
   renderAccountControls();
+  renderGithubControls();
   renderPersistenceStatus();
   renderInsights();
   renderClock();
@@ -703,6 +763,188 @@ function importJson(file) {
   reader.readAsText(file);
 }
 
+async function startGithubLogin() {
+  const clientId = $("#githubClientInput").value.trim();
+  if (!clientId) {
+    formError.textContent = "GitHub OAuth Client ID를 입력하세요.";
+    return;
+  }
+  const verifier = randomString();
+  const stateValue = randomString(32);
+  const challenge = base64Url(await sha256(verifier));
+  sessionStorage.setItem(GITHUB_PKCE_KEY, JSON.stringify({ verifier, state: stateValue }));
+  saveGithubConfig({
+    ...getGithubConfig(),
+    clientId,
+    owner: $("#repoOwnerInput").value.trim(),
+    repo: $("#repoNameInput").value.trim() || "rounday-data",
+  });
+
+  const redirectUri = `${location.origin}${location.pathname}`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: "repo",
+    state: stateValue,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  });
+  location.href = `https://github.com/login/oauth/authorize?${params}`;
+}
+
+async function completeGithubLogin() {
+  const params = new URLSearchParams(location.search);
+  const code = params.get("code");
+  const stateValue = params.get("state");
+  if (!code) return;
+
+  const pkce = JSON.parse(sessionStorage.getItem(GITHUB_PKCE_KEY) || "null");
+  const config = getGithubConfig();
+  history.replaceState({}, document.title, `${location.origin}${location.pathname}${location.hash}`);
+  if (!pkce || pkce.state !== stateValue || !config.clientId) {
+    formError.textContent = "GitHub 로그인 상태를 확인할 수 없습니다.";
+    return;
+  }
+
+  try {
+    const response = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: config.clientId,
+        code,
+        redirect_uri: `${location.origin}${location.pathname}`,
+        code_verifier: pkce.verifier,
+      }),
+    });
+    const token = await response.json();
+    if (!response.ok || !token.access_token) throw new Error(token.error_description || "GitHub token 교환에 실패했습니다.");
+    sessionStorage.setItem(GITHUB_TOKEN_KEY, token.access_token);
+    sessionStorage.removeItem(GITHUB_PKCE_KEY);
+    await hydrateGithubUser();
+  } catch (error) {
+    formError.textContent = error.message;
+  }
+}
+
+async function hydrateGithubUser() {
+  const config = getGithubConfig();
+  if (!getGithubToken()) {
+    renderGithubControls();
+    return;
+  }
+  const user = await githubRequest("/user");
+  saveGithubConfig({
+    ...config,
+    owner: config.owner || user.login,
+    repo: config.repo || "rounday-data",
+    login: user.login,
+  });
+  renderGithubControls();
+}
+
+function renderGithubControls() {
+  const config = getGithubConfig();
+  const connected = Boolean(getGithubToken());
+  $("#githubClientInput").value = config.clientId || window.RoundayConfig?.githubClientId || "";
+  $("#repoOwnerInput").value = config.owner || config.login || "";
+  $("#repoNameInput").value = config.repo || "rounday-data";
+  $("#githubState").textContent = connected ? config.login || "연결됨" : "미연결";
+$("#githubLogoutBtn").disabled = !connected;
+}
+
+function persistGithubFormConfig() {
+  saveGithubConfig({
+    ...getGithubConfig(),
+    clientId: $("#githubClientInput").value.trim(),
+    owner: $("#repoOwnerInput").value.trim(),
+    repo: $("#repoNameInput").value.trim() || "rounday-data",
+  });
+}
+
+function schedulePath(date) {
+  const [year, month] = date.split("-");
+  return `data/schedules/${year}/${month}/${date}.json`;
+}
+
+function currentSchedulePayload(date) {
+  return {
+    date,
+    profileId: activeProfile().id,
+    profileName: activeProfile().name,
+    events,
+    templates: state.templates,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function createGithubDataRepo() {
+  persistGithubFormConfig();
+  const repo = $("#repoNameInput").value.trim() || "rounday-data";
+  await githubRequest("/user/repos", {
+    method: "POST",
+    body: JSON.stringify({
+      name: repo,
+      private: true,
+      description: "Rounday schedule data",
+      has_issues: false,
+      has_projects: false,
+      has_wiki: false,
+      auto_init: true,
+    }),
+  });
+  $("#githubState").textContent = "repo 생성됨";
+}
+
+async function saveScheduleToGithub() {
+  persistGithubFormConfig();
+  const config = getGithubConfig();
+  const date = $("#scheduleDateInput").value;
+  const path = schedulePath(date);
+  let sha;
+  try {
+    const existing = await githubRequest(`/repos/${config.owner}/${config.repo}/contents/${encodeURIComponent(path).replaceAll("%2F", "/")}`);
+    sha = existing.sha;
+  } catch {
+    sha = undefined;
+  }
+  await githubRequest(`/repos/${config.owner}/${config.repo}/contents/${encodeURIComponent(path).replaceAll("%2F", "/")}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      message: `Save Rounday schedule for ${date}`,
+      content: base64Json(currentSchedulePayload(date)),
+      sha,
+    }),
+  });
+  $("#githubState").textContent = "저장됨";
+}
+
+async function loadScheduleFromGithub() {
+  persistGithubFormConfig();
+  const config = getGithubConfig();
+  const date = $("#scheduleDateInput").value;
+  const path = schedulePath(date);
+  const file = await githubRequest(`/repos/${config.owner}/${config.repo}/contents/${encodeURIComponent(path).replaceAll("%2F", "/")}`);
+  const payload = parseBase64Json(file.content.replace(/\s/g, ""));
+  setEvents((payload.events || []).map(normalizeEvent));
+  if (Array.isArray(payload.templates)) state.templates = payload.templates.map((template) => ({
+    id: typeof template.id === "string" ? template.id : crypto.randomUUID(),
+    name: typeof template.name === "string" ? template.name : "가져온 템플릿",
+    events: Array.isArray(template.events) ? template.events.map(normalizeEvent) : [],
+  }));
+  resetForm();
+  renderAll();
+  $("#githubState").textContent = "불러옴";
+}
+
+function logoutGithub() {
+  sessionStorage.removeItem(GITHUB_TOKEN_KEY);
+  renderGithubControls();
+}
+
 function signIn() {
   const email = $("#accountEmailInput").value.trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
@@ -794,6 +1036,11 @@ $("#profileNameInput").addEventListener("change", (event) => renameActiveProfile
 $("#importBtn").addEventListener("click", () => $("#importInput").click());
 $("#importInput").addEventListener("change", (event) => importJson(event.target.files[0]));
 $("#saveTemplateBtn").addEventListener("click", saveCurrentTemplate);
+$("#githubLoginBtn").addEventListener("click", startGithubLogin);
+$("#githubLogoutBtn").addEventListener("click", logoutGithub);
+$("#createRepoBtn").addEventListener("click", () => createGithubDataRepo().catch((error) => (formError.textContent = error.message)));
+$("#saveGithubBtn").addEventListener("click", () => saveScheduleToGithub().catch((error) => (formError.textContent = error.message)));
+$("#loadGithubBtn").addEventListener("click", () => loadScheduleFromGithub().catch((error) => (formError.textContent = error.message)));
 $("#signInBtn").addEventListener("click", signIn);
 $("#signOutBtn").addEventListener("click", signOut);
 
@@ -840,6 +1087,10 @@ document.addEventListener("keydown", (event) => {
 });
 
 resetForm();
+$("#scheduleDateInput").value = new Date().toISOString().slice(0, 10);
+renderGithubControls();
+completeGithubLogin();
+if (getGithubToken()) hydrateGithubUser().catch(() => logoutGithub());
 renderAll();
 setInterval(() => {
   renderClock();
