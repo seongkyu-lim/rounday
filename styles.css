@@ -296,11 +296,19 @@ select:focus {
   padding: 16px;
 }
 
-.template-list button {
+.template-list button,
+.custom-template-list button {
   min-height: 40px;
   text-align: left;
   padding: 0 12px;
   font-weight: 700;
+}
+
+.custom-template-list {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding: 12px 16px 16px;
 }
 
 .main {
