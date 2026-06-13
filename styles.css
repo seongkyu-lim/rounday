@@ -342,6 +342,8 @@ select:focus {
   aspect-ratio: 1;
   overflow: visible;
   filter: drop-shadow(var(--shadow));
+  touch-action: none;
+  user-select: none;
 }
 
 .clock-center {
@@ -402,6 +404,22 @@ select:focus {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.event-card:hover,
+.event-card:focus-visible,
+.event-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 10px 26px rgba(36, 107, 95, 0.12);
+}
+
+.event-card.active {
+  transform: translateX(-2px);
 }
 
 .event-strip {
@@ -471,6 +489,14 @@ select:focus {
 .event-arc.active {
   opacity: 0.9;
   stroke-width: 48;
+}
+
+.draft-arc {
+  fill: none;
+  opacity: 0.38;
+  stroke-dasharray: 10 9;
+  stroke-linecap: round;
+  pointer-events: none;
 }
 
 .now-line {
