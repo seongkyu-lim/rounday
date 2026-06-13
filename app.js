@@ -31,7 +31,7 @@ const templates = {
   ],
 };
 
-let state = loadState();
+let state = loadSharedState() || loadState();
 let events = activeProfile().events;
 let selectedColor = palette[0];
 let activeEventId = "";
@@ -157,6 +157,26 @@ function setEvents(nextEvents) {
 function saveState() {
   state.updatedAt = new Date().toISOString();
   lastSave = storageAdapter.save(state);
+}
+
+function encodeSharePayload(profile) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(profile))));
+}
+
+function decodeSharePayload(payload) {
+  return JSON.parse(decodeURIComponent(escape(atob(payload))));
+}
+
+function loadSharedState() {
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const payload = hash.get("share");
+  if (!payload) return null;
+  try {
+    const profile = createProfile("공유 일정", decodeSharePayload(payload).events || []);
+    return createState([profile], profile.id, { sync: { provider: "shared" } });
+  } catch {
+    return null;
+  }
 }
 
 function timeToMinutes(time) {
@@ -674,6 +694,34 @@ function downloadJson() {
   URL.revokeObjectURL(url);
 }
 
+async function copyShareLink() {
+  const payload = encodeSharePayload(activeProfile());
+  const url = `${location.origin}${location.pathname}#share=${encodeURIComponent(payload)}`;
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(url);
+  } else {
+    const input = document.createElement("textarea");
+    input.value = url;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand("copy");
+    input.remove();
+  }
+  $("#syncStatus").textContent = "공유 링크 복사됨";
+}
+
+function downloadClockSvg() {
+  const clone = clockSvg.cloneNode(true);
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `rounday-${activeProfile().name.replace(/\\s+/g, "-")}.svg`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function updateCurrentTime() {
   const now = new Date();
   $("#currentTime").textContent = minutesToLabel(now.getHours() * 60 + now.getMinutes());
@@ -688,6 +736,9 @@ document.querySelectorAll("[data-template]").forEach((button) => {
 });
 
 $("#downloadBtn").addEventListener("click", downloadJson);
+$("#shareBtn").addEventListener("click", copyShareLink);
+$("#imageExportBtn").addEventListener("click", downloadClockSvg);
+$("#printBtn").addEventListener("click", () => window.print());
 $("#resetBtn").addEventListener("click", () => {
   setEvents(cloneEvents(defaultEvents));
   resetForm();
