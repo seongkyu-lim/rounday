@@ -20,7 +20,7 @@
           </div>
         </div>
 
-        <section class="panel compact">
+        <section class="panel compact profile-panel">
           <div class="section-title">
             <h2>데이 프로필</h2>
             <div class="mini-actions">
@@ -42,11 +42,11 @@
           </label>
         </section>
 
-        <section class="panel compact">
-          <div class="section-title">
-            <h2>계정</h2>
+        <details class="panel compact settings-panel">
+          <summary>
+            <span>계정</span>
             <span id="accountState">오프라인</span>
-          </div>
+          </summary>
           <label>
             이메일
             <input id="accountEmailInput" type="email" placeholder="you@example.com" />
@@ -60,13 +60,13 @@
               <i data-lucide="log-out"></i>
             </button>
           </div>
-        </section>
+        </details>
 
-        <section class="panel compact">
-          <div class="section-title">
-            <h2>GitHub 저장</h2>
+        <details class="panel compact settings-panel">
+          <summary>
+            <span>GitHub 저장</span>
             <span id="githubState">미연결</span>
-          </div>
+          </summary>
           <label>
             OAuth Client ID
             <input id="githubClientInput" type="text" placeholder="GitHub OAuth App Client ID" />
@@ -99,9 +99,9 @@
             <button type="button" id="saveGithubBtn">오늘 계획 저장</button>
             <button type="button" id="loadGithubBtn">선택 날짜 불러오기</button>
           </div>
-        </section>
+        </details>
 
-        <section class="panel compact">
+        <section class="panel compact rhythm-panel">
           <div class="section-title">
             <h2>오늘의 리듬</h2>
             <span id="completionText">0%</span>
@@ -125,7 +125,7 @@
           </div>
         </section>
 
-        <form id="eventForm" class="panel form-panel">
+        <form id="eventForm" class="panel form-panel primary-panel">
           <input type="hidden" id="eventId" />
           <div class="section-title">
             <h2 id="formTitle">일정 추가</h2>
@@ -178,7 +178,7 @@
           <p id="formError" class="form-error" role="alert"></p>
         </form>
 
-        <section class="panel">
+        <section class="panel template-panel">
           <div class="section-title">
             <h2>템플릿</h2>
             <button class="icon-button ghost" type="button" id="importBtn" aria-label="JSON 가져오기">
@@ -199,8 +199,8 @@
       <main class="main">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Circular daily planner</p>
-            <h2>시간을 시계처럼 배치하고 하루 흐름을 바로 확인하세요.</h2>
+            <p class="eyebrow">Rounday app</p>
+            <h2>오늘의 원형표</h2>
             <p id="syncStatus" class="sync-status">로컬 저장 준비됨</p>
           </div>
           <div class="actions">
