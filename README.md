@@ -34,7 +34,7 @@ docker compose up --build
 mvn spring-boot:run
 ```
 
-Spring Boot 서버는 Java 17 이상에서 실행합니다.
+Spring Boot 서버는 Java 21 이상에서 실행합니다.
 
 기본 DB 설정은 다음과 같습니다.
 
