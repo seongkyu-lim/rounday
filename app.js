@@ -107,6 +107,12 @@ function createState(profiles, activeProfileId, source = {}) {
   return {
     schemaVersion: SCHEMA_VERSION,
     userId: typeof source.userId === "string" ? source.userId : null,
+    account: source.account
+      ? {
+          email: typeof source.account.email === "string" ? source.account.email : "",
+          signedInAt: typeof source.account.signedInAt === "string" ? source.account.signedInAt : null,
+        }
+      : null,
     activeProfileId,
     profiles,
     updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : new Date().toISOString(),
@@ -375,7 +381,15 @@ function renderStats() {
 function renderPersistenceStatus() {
   const savedAt = lastSave?.savedAt || state.updatedAt;
   const label = savedAt ? new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
-  $("#syncStatus").textContent = `${state.sync.provider === "local" ? "로컬 저장" : "동기화"} · ${label}`;
+  const scope = state.account ? "개인 저장" : "로컬 저장";
+  $("#syncStatus").textContent = `${scope} · ${label}`;
+}
+
+function renderAccountControls() {
+  const signedIn = Boolean(state.account?.email);
+  $("#accountState").textContent = signedIn ? "로그인됨" : "오프라인";
+  $("#accountEmailInput").value = state.account?.email || "";
+  $("#signOutBtn").disabled = !signedIn;
 }
 
 function renderSwatches() {
@@ -413,6 +427,7 @@ function renderProfileControls() {
 function renderAll() {
   saveState();
   renderProfileControls();
+  renderAccountControls();
   renderPersistenceStatus();
   renderClock();
   renderTimeline();
@@ -577,6 +592,24 @@ function importJson(file) {
   reader.readAsText(file);
 }
 
+function signIn() {
+  const email = $("#accountEmailInput").value.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    formError.textContent = "계정 이메일을 확인하세요.";
+    return;
+  }
+  state.account = { email, signedInAt: new Date().toISOString() };
+  state.userId = `local:${email}`;
+  formError.textContent = "";
+  renderAll();
+}
+
+function signOut() {
+  state.account = null;
+  state.userId = null;
+  renderAll();
+}
+
 function downloadJson() {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -618,6 +651,8 @@ $("#profileSelect").addEventListener("change", (event) => {
 $("#profileNameInput").addEventListener("change", (event) => renameActiveProfile(event.target.value));
 $("#importBtn").addEventListener("click", () => $("#importInput").click());
 $("#importInput").addEventListener("change", (event) => importJson(event.target.files[0]));
+$("#signInBtn").addEventListener("click", signIn);
+$("#signOutBtn").addEventListener("click", signOut);
 
 clockSvg.addEventListener("pointerdown", (event) => {
   if (event.target.closest(".event-arc")) return;
