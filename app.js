@@ -115,6 +115,13 @@ function createState(profiles, activeProfileId, source = {}) {
       : null,
     activeProfileId,
     profiles,
+    templates: Array.isArray(source.templates)
+      ? source.templates.map((template, index) => ({
+          id: typeof template.id === "string" ? template.id : crypto.randomUUID(),
+          name: typeof template.name === "string" && template.name.trim() ? template.name.trim().slice(0, 24) : `템플릿 ${index + 1}`,
+          events: Array.isArray(template.events) ? template.events.map(normalizeEvent) : [],
+        }))
+      : [],
     updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : new Date().toISOString(),
     sync: {
       provider: source.sync?.provider || "local",
@@ -497,9 +504,22 @@ function renderProfileControls() {
   $("#deleteProfileBtn").disabled = state.profiles.length < 2;
 }
 
+function renderCustomTemplates() {
+  const list = $("#customTemplateList");
+  list.replaceChildren();
+  state.templates.forEach((template) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = `${template.name} · ${template.events.length}개`;
+    button.addEventListener("click", () => applyCustomTemplate(template.id));
+    list.appendChild(button);
+  });
+}
+
 function renderAll() {
   saveState();
   renderProfileControls();
+  renderCustomTemplates();
   renderAccountControls();
   renderPersistenceStatus();
   renderInsights();
@@ -620,6 +640,23 @@ function applyTemplate(name) {
     })));
   }
   resetForm();
+  renderAll();
+}
+
+function applyCustomTemplate(id) {
+  const template = state.templates.find((item) => item.id === id);
+  if (!template) return;
+  setEvents(cloneEvents(template.events));
+  resetForm();
+  renderAll();
+}
+
+function saveCurrentTemplate() {
+  state.templates.push({
+    id: crypto.randomUUID(),
+    name: activeProfile().name,
+    events: cloneEvents(events),
+  });
   renderAll();
 }
 
@@ -756,6 +793,7 @@ $("#profileSelect").addEventListener("change", (event) => {
 $("#profileNameInput").addEventListener("change", (event) => renameActiveProfile(event.target.value));
 $("#importBtn").addEventListener("click", () => $("#importInput").click());
 $("#importInput").addEventListener("change", (event) => importJson(event.target.files[0]));
+$("#saveTemplateBtn").addEventListener("click", saveCurrentTemplate);
 $("#signInBtn").addEventListener("click", signIn);
 $("#signOutBtn").addEventListener("click", signOut);
 
