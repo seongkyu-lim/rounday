@@ -15,7 +15,7 @@ Rounday is a local-first circular daily planner for building, editing, analyzing
 - Share links, SVG export, print layout, JSON import/export
 - Custom templates
 - Regression tests for time calculations
-- GitHub Pages deployment workflow
+- CI workflow for launch validation
 
 ## Verification
 
