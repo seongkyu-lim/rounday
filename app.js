@@ -55,6 +55,9 @@ const storageAdapter = {
   },
 };
 let lastSave = null;
+let serverSyncTimer = null;
+let syncMessage = "";
+const canUseServer = location.protocol !== "file:";
 
 function cloneEvents(source) {
   return source.map((event) => ({ ...event, id: crypto.randomUUID(), repeat: Boolean(event.repeat) }));
@@ -164,6 +167,75 @@ function setEvents(nextEvents) {
 function saveState() {
   state.updatedAt = new Date().toISOString();
   lastSave = storageAdapter.save(state);
+  scheduleServerSave();
+}
+
+async function apiJson(path, options = {}) {
+  const response = await fetch(path, {
+    headers: { "content-type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || "요청을 처리하지 못했습니다.");
+  return payload;
+}
+
+function scheduleServerSave() {
+  if (!canUseServer || !state.account?.email) return;
+  clearTimeout(serverSyncTimer);
+  serverSyncTimer = setTimeout(saveStateToServer, 450);
+}
+
+async function saveStateToServer() {
+  try {
+    syncMessage = "서버 저장 중...";
+    renderPersistenceStatus();
+    const payload = await apiJson("/api/state", {
+      method: "PUT",
+      body: JSON.stringify({ state }),
+    });
+    if (payload.state) {
+      state = normalizeState(payload.state);
+      syncActiveEvents();
+      storageAdapter.save(state);
+    }
+    lastSave = { provider: "server", savedAt: payload.savedAt || new Date().toISOString() };
+    syncMessage = "";
+    renderPersistenceStatus();
+  } catch (error) {
+    syncMessage = `서버 저장 실패 · ${error.message}`;
+    renderPersistenceStatus();
+  }
+}
+
+function applySignedInState(payload) {
+  if (payload.state) {
+    state = normalizeState(payload.state);
+  } else if (payload.user) {
+    state.account = { email: payload.user.email, signedInAt: payload.user.signedInAt };
+    state.userId = payload.user.id;
+    state.sync = { provider: "server", lastSyncedAt: null };
+  }
+  syncActiveEvents();
+  storageAdapter.save(state);
+  lastSave = { provider: "server", savedAt: state.sync?.lastSyncedAt || state.updatedAt };
+}
+
+async function restoreServerSession() {
+  if (!canUseServer) return;
+  try {
+    const payload = await apiJson("/api/session");
+    if (!payload.user) {
+      renderPersistenceStatus();
+      return;
+    }
+    applySignedInState(payload);
+    resetForm();
+    renderAll();
+  } catch {
+    syncMessage = "서버 연결 없음 · 로컬 저장";
+    renderPersistenceStatus();
+  }
 }
 
 function encodeSharePayload(profile) {
@@ -459,9 +531,13 @@ function renderInsights() {
 }
 
 function renderPersistenceStatus() {
+  if (syncMessage) {
+    $("#syncStatus").textContent = syncMessage;
+    return;
+  }
   const savedAt = lastSave?.savedAt || state.updatedAt;
   const label = savedAt ? new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
-  const scope = state.account ? "개인 저장" : "로컬 저장";
+  const scope = state.account ? "서버 개인 저장" : "로컬 저장";
   $("#syncStatus").textContent = `${scope} · ${label}`;
 }
 
@@ -469,6 +545,7 @@ function renderAccountControls() {
   const signedIn = Boolean(state.account?.email);
   $("#accountState").textContent = signedIn ? "로그인됨" : "오프라인";
   $("#accountEmailInput").value = state.account?.email || "";
+  $("#accountPasswordInput").value = "";
   $("#signOutBtn").disabled = !signedIn;
 }
 
@@ -703,21 +780,53 @@ function importJson(file) {
   reader.readAsText(file);
 }
 
-function signIn() {
+async function signIn() {
   const email = $("#accountEmailInput").value.trim().toLowerCase();
+  const password = $("#accountPasswordInput").value;
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     formError.textContent = "계정 이메일을 확인하세요.";
     return;
   }
-  state.account = { email, signedInAt: new Date().toISOString() };
-  state.userId = `local:${email}`;
-  formError.textContent = "";
-  renderAll();
+  if (password.length < 6) {
+    formError.textContent = "비밀번호는 6자 이상으로 입력하세요.";
+    return;
+  }
+  if (!canUseServer) {
+    formError.textContent = "계정 저장은 서버로 접속했을 때 사용할 수 있습니다.";
+    return;
+  }
+
+  try {
+    formError.textContent = "";
+    syncMessage = "로그인 중...";
+    renderPersistenceStatus();
+    const payload = await apiJson("/api/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password, state }),
+    });
+    syncMessage = "";
+    applySignedInState(payload);
+    resetForm();
+    renderAll();
+  } catch (error) {
+    syncMessage = "";
+    formError.textContent = error.message;
+    renderPersistenceStatus();
+  }
 }
 
-function signOut() {
+async function signOut() {
+  if (canUseServer) {
+    try {
+      await apiJson("/api/logout", { method: "POST", body: "{}" });
+    } catch {
+      // Keep local sign-out responsive even if the server session already expired.
+    }
+  }
   state.account = null;
   state.userId = null;
+  state.sync = { provider: "local", lastSyncedAt: null };
+  $("#accountPasswordInput").value = "";
   renderAll();
 }
 
@@ -841,6 +950,7 @@ document.addEventListener("keydown", (event) => {
 
 resetForm();
 renderAll();
+restoreServerSession();
 setInterval(() => {
   renderClock();
   updateCurrentTime();
