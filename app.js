@@ -40,6 +40,7 @@ let selectedColor = palette[0];
 let activeEventId = "";
 let draftSelection = null;
 let dragState = null;
+let deferredInstallPrompt = null;
 
 const $ = (selector) => document.querySelector(selector);
 const clockSvg = $("#clockSvg");
@@ -1010,6 +1011,17 @@ function refreshIcons() {
   if (window.lucide) window.lucide.createIcons();
 }
 
+function renderInstallState() {
+  $("#installAppBtn").classList.toggle("hidden", !deferredInstallPrompt);
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("./sw.js").catch(() => {
+    $("#syncStatus").textContent = "오프라인 캐시 등록 실패";
+  });
+}
+
 document.querySelectorAll("[data-template]").forEach((button) => {
   button.addEventListener("click", () => applyTemplate(button.dataset.template));
 });
@@ -1043,6 +1055,19 @@ $("#saveGithubBtn").addEventListener("click", () => saveScheduleToGithub().catch
 $("#loadGithubBtn").addEventListener("click", () => loadScheduleFromGithub().catch((error) => (formError.textContent = error.message)));
 $("#signInBtn").addEventListener("click", signIn);
 $("#signOutBtn").addEventListener("click", signOut);
+$("#installAppBtn").addEventListener("click", async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  renderInstallState();
+});
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  renderInstallState();
+});
 
 clockSvg.addEventListener("pointerdown", (event) => {
   if (event.target.closest(".event-arc")) return;
@@ -1091,6 +1116,7 @@ $("#scheduleDateInput").value = new Date().toISOString().slice(0, 10);
 renderGithubControls();
 completeGithubLogin();
 if (getGithubToken()) hydrateGithubUser().catch(() => logoutGithub());
+registerServiceWorker();
 renderAll();
 setInterval(() => {
   renderClock();
