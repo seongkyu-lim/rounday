@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rounday - 원형 하루 시간표</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="시간표 설정">
+        <div class="brand">
+          <div class="brand-mark">24</div>
+          <div>
+            <h1>Rounday</h1>
+            <p>하루를 원으로 관리하기</p>
+          </div>
+        </div>
+
+        <section class="panel compact">
+          <div class="section-title">
+            <h2>오늘의 리듬</h2>
+            <span id="completionText">0%</span>
+          </div>
+          <div class="progress-track" aria-hidden="true">
+            <div id="progressFill"></div>
+          </div>
+          <div class="stat-grid">
+            <div>
+              <strong id="plannedHours">0h</strong>
+              <span>계획됨</span>
+            </div>
+            <div>
+              <strong id="freeHours">24h</strong>
+              <span>비어 있음</span>
+            </div>
+            <div>
+              <strong id="blockCount">0</strong>
+              <span>블록</span>
+            </div>
+          </div>
+        </section>
+
+        <form id="eventForm" class="panel form-panel">
+          <input type="hidden" id="eventId" />
+          <div class="section-title">
+            <h2 id="formTitle">일정 추가</h2>
+            <button class="icon-button ghost hidden" type="button" id="cancelEdit" aria-label="편집 취소">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+
+          <label>
+            이름
+            <input id="titleInput" type="text" maxlength="28" placeholder="예: 집중 작업" required />
+          </label>
+
+          <div class="two-cols">
+            <label>
+              시작
+              <input id="startInput" type="time" required />
+            </label>
+            <label>
+              종료
+              <input id="endInput" type="time" required />
+            </label>
+          </div>
+
+          <label>
+            유형
+            <select id="typeInput">
+              <option value="focus">집중</option>
+              <option value="health">건강</option>
+              <option value="life">생활</option>
+              <option value="learn">학습</option>
+              <option value="rest">휴식</option>
+            </select>
+          </label>
+
+          <label>
+            색상
+            <div class="swatches" id="swatches" aria-label="색상 선택"></div>
+          </label>
+
+          <button class="primary-button" type="submit">
+            <i data-lucide="plus"></i>
+            <span id="submitText">추가하기</span>
+          </button>
+          <p id="formError" class="form-error" role="alert"></p>
+        </form>
+
+        <section class="panel">
+          <div class="section-title">
+            <h2>템플릿</h2>
+          </div>
+          <div class="template-list">
+            <button type="button" data-template="student">학생 루틴</button>
+            <button type="button" data-template="maker">메이커 루틴</button>
+            <button type="button" data-template="reset">비우기</button>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Circular daily planner</p>
+            <h2>시간을 시계처럼 배치하고 하루 흐름을 바로 확인하세요.</h2>
+          </div>
+          <div class="actions">
+            <button class="icon-button" type="button" id="downloadBtn" aria-label="JSON 내보내기">
+              <i data-lucide="download"></i>
+            </button>
+            <button class="icon-button" type="button" id="resetBtn" aria-label="기본 예시로 되돌리기">
+              <i data-lucide="rotate-ccw"></i>
+            </button>
+          </div>
+        </header>
+
+        <section class="planner-layout">
+          <div class="clock-wrap" aria-label="원형 시간표">
+            <svg id="clockSvg" viewBox="0 0 620 620" role="img" aria-labelledby="clockTitle clockDesc">
+              <title id="clockTitle">원형 하루 시간표</title>
+              <desc id="clockDesc">0시부터 24시까지의 일정 블록을 원형으로 표시합니다.</desc>
+            </svg>
+            <div class="clock-center">
+              <span id="currentTime">--:--</span>
+              <strong>오늘</strong>
+            </div>
+          </div>
+
+          <aside class="timeline panel" aria-label="일정 목록">
+            <div class="section-title">
+              <h2>일정 목록</h2>
+              <span id="conflictBadge" class="badge hidden">겹침</span>
+            </div>
+            <div id="timelineList" class="timeline-list"></div>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
