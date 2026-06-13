@@ -1,0 +1,10 @@
+{
+  "name": "Rounday",
+  "short_name": "Rounday",
+  "description": "Circular 24-hour daily planner",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f5ef",
+  "theme_color": "#246b5f",
+  "icons": []
+}
