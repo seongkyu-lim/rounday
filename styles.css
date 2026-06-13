@@ -331,6 +331,13 @@ select:focus {
   text-transform: uppercase;
 }
 
+.sync-status {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .actions {
   display: flex;
   gap: 8px;
