@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Rounday">
+  <rect width="512" height="512" rx="112" fill="#246b5f"/>
+  <circle cx="256" cy="256" r="164" fill="#fffefa" stroke="#f8c75f" stroke-width="28"/>
+  <path d="M256 112a144 144 0 0 1 129 208" fill="none" stroke="#e35d4f" stroke-width="38" stroke-linecap="round"/>
+  <path d="M256 112v144l92 54" fill="none" stroke="#1e2224" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="256" y="398" text-anchor="middle" font-family="Arial, sans-serif" font-size="68" font-weight="800" fill="#1e2224">24</text>
+</svg>
