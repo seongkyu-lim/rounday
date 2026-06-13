@@ -64,6 +64,45 @@
 
         <section class="panel compact">
           <div class="section-title">
+            <h2>GitHub 저장</h2>
+            <span id="githubState">미연결</span>
+          </div>
+          <label>
+            OAuth Client ID
+            <input id="githubClientInput" type="text" placeholder="GitHub OAuth App Client ID" />
+          </label>
+          <div class="account-actions">
+            <button class="primary-button" type="button" id="githubLoginBtn">
+              <i data-lucide="github"></i>
+              GitHub 로그인
+            </button>
+            <button class="icon-button" type="button" id="githubLogoutBtn" aria-label="GitHub 연결 해제">
+              <i data-lucide="unlink"></i>
+            </button>
+          </div>
+          <div class="two-cols">
+            <label>
+              Owner
+              <input id="repoOwnerInput" type="text" placeholder="username" />
+            </label>
+            <label>
+              Repo
+              <input id="repoNameInput" type="text" placeholder="rounday-data" />
+            </label>
+          </div>
+          <label>
+            날짜
+            <input id="scheduleDateInput" type="date" />
+          </label>
+          <div class="template-list flush">
+            <button type="button" id="createRepoBtn">데이터 repo 만들기</button>
+            <button type="button" id="saveGithubBtn">오늘 계획 저장</button>
+            <button type="button" id="loadGithubBtn">선택 날짜 불러오기</button>
+          </div>
+        </section>
+
+        <section class="panel compact">
+          <div class="section-title">
             <h2>오늘의 리듬</h2>
             <span id="completionText">0%</span>
           </div>
@@ -208,6 +247,7 @@
     </div>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./config.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
