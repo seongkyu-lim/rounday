@@ -34,8 +34,8 @@ const templates = {
   ],
 };
 
-let state = loadSharedState() || loadState();
-let events = activeProfile().events;
+let state;
+let events;
 let selectedColor = palette[0];
 let activeEventId = "";
 let draftSelection = null;
@@ -59,6 +59,8 @@ const storageAdapter = {
   },
 };
 let lastSave = null;
+state = loadSharedState() || loadState();
+events = activeProfile().events;
 
 function getGithubConfig() {
   try {
