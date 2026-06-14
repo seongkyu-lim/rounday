@@ -42,7 +42,7 @@
           </label>
         </section>
 
-        <details class="panel compact settings-panel">
+        <details class="panel compact settings-panel" hidden data-archived="account">
           <summary>
             <span>계정</span>
             <span id="accountState">오프라인</span>
@@ -67,6 +67,7 @@
             <span>GitHub 저장</span>
             <span id="githubState">미연결</span>
           </summary>
+          <p id="githubFeedback" class="panel-note">OAuth Client ID를 입력하면 GitHub 로그인을 시작할 수 있습니다.</p>
           <label>
             OAuth Client ID
             <input id="githubClientInput" type="text" placeholder="GitHub OAuth App Client ID" />
