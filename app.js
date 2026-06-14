@@ -1032,8 +1032,27 @@ function renderInstallState() {
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker.register("./sw.js").catch(() => {
-    $("#syncStatus").textContent = "오프라인 캐시 등록 실패";
+  navigator.serviceWorker
+    .register("./sw.js")
+    .then((registration) => {
+      registration.update();
+      if (registration.waiting) registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      registration.addEventListener("updatefound", () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "installed" && navigator.serviceWorker.controller) worker.postMessage({ type: "SKIP_WAITING" });
+        });
+      });
+    })
+    .catch(() => {
+      $("#syncStatus").textContent = "오프라인 캐시 등록 실패";
+    });
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (sessionStorage.getItem("rounday-sw-refreshing")) return;
+    sessionStorage.setItem("rounday-sw-refreshing", "1");
+    location.reload();
   });
 }
 
