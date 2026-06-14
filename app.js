@@ -523,11 +523,11 @@ function renderInsights() {
 function renderPersistenceStatus() {
   const savedAt = lastSave?.savedAt || state.updatedAt;
   const label = savedAt ? new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
-  const scope = state.account ? "개인 저장" : "로컬 저장";
-  $("#syncStatus").textContent = `${scope} · ${label}`;
+  $("#syncStatus").textContent = `로컬 저장 · ${label}`;
 }
 
 function renderAccountControls() {
+  if (!$("#accountState")) return;
   const signedIn = Boolean(state.account?.email);
   $("#accountState").textContent = signedIn ? "로그인됨" : "오프라인";
   $("#accountEmailInput").value = state.account?.email || "";
@@ -769,9 +769,11 @@ function importJson(file) {
 async function startGithubLogin() {
   const clientId = $("#githubClientInput").value.trim();
   if (!clientId) {
-    formError.textContent = "GitHub OAuth Client ID를 입력하세요.";
+    setGithubFeedback("OAuth Client ID를 먼저 입력하세요.", true);
+    $("#githubClientInput").focus();
     return;
   }
+  setGithubFeedback("GitHub 로그인으로 이동합니다.", false);
   const verifier = randomString();
   const stateValue = randomString(32);
   const challenge = base64Url(await sha256(verifier));
@@ -856,7 +858,18 @@ function renderGithubControls() {
   $("#repoOwnerInput").value = config.owner || config.login || "";
   $("#repoNameInput").value = config.repo || "rounday-data";
   $("#githubState").textContent = connected ? config.login || "연결됨" : "미연결";
-$("#githubLogoutBtn").disabled = !connected;
+  setGithubFeedback(
+    connected ? "연결되었습니다. 날짜를 선택해 저장하거나 불러올 수 있습니다." : "OAuth Client ID를 입력하면 GitHub 로그인을 시작할 수 있습니다.",
+    false,
+  );
+  $("#githubLogoutBtn").disabled = !connected;
+}
+
+function setGithubFeedback(message, isError = false) {
+  const target = $("#githubFeedback");
+  if (!target) return;
+  target.textContent = message;
+  target.classList.toggle("danger-text", isError);
 }
 
 function persistGithubFormConfig() {
@@ -1050,13 +1063,13 @@ $("#profileNameInput").addEventListener("change", (event) => renameActiveProfile
 $("#importBtn").addEventListener("click", () => $("#importInput").click());
 $("#importInput").addEventListener("change", (event) => importJson(event.target.files[0]));
 $("#saveTemplateBtn").addEventListener("click", saveCurrentTemplate);
-$("#githubLoginBtn").addEventListener("click", startGithubLogin);
+$("#githubLoginBtn").addEventListener("click", () => startGithubLogin().catch((error) => setGithubFeedback(error.message, true)));
 $("#githubLogoutBtn").addEventListener("click", logoutGithub);
 $("#createRepoBtn").addEventListener("click", () => createGithubDataRepo().catch((error) => (formError.textContent = error.message)));
 $("#saveGithubBtn").addEventListener("click", () => saveScheduleToGithub().catch((error) => (formError.textContent = error.message)));
 $("#loadGithubBtn").addEventListener("click", () => loadScheduleFromGithub().catch((error) => (formError.textContent = error.message)));
-$("#signInBtn").addEventListener("click", signIn);
-$("#signOutBtn").addEventListener("click", signOut);
+$("#signInBtn")?.addEventListener("click", signIn);
+$("#signOutBtn")?.addEventListener("click", signOut);
 $("#installAppBtn").addEventListener("click", async () => {
   if (!deferredInstallPrompt) return;
   deferredInstallPrompt.prompt();
