@@ -4,4 +4,6 @@ dist/
 target/
 .env
 .env.*
+config.js
+data/
 data/

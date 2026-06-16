@@ -6,5 +6,20 @@
   "display": "standalone",
   "background_color": "#f6f5ef",
   "theme_color": "#246b5f",
-  "icons": []
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "오늘 계획",
+      "short_name": "오늘",
+      "url": "./index.html",
+      "description": "Open today's circular plan"
+    }
+  ]
 }

@@ -41,18 +41,24 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-columns: 330px minmax(0, 1fr);
   min-height: 100vh;
+}
+
+.mobile-nav {
+  display: none;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   padding: 24px;
   border-right: 1px solid var(--line);
   background: rgba(255, 254, 250, 0.82);
   backdrop-filter: blur(18px);
+  max-height: 100vh;
+  overflow: auto;
 }
 
 .brand {
@@ -82,6 +88,18 @@ button {
   margin: 0;
 }
 
+.panel-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.danger-text {
+  color: var(--danger);
+}
+
 .brand h1 {
   font-size: 1.35rem;
   line-height: 1.1;
@@ -97,7 +115,66 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
-  box-shadow: 0 8px 26px rgba(37, 42, 44, 0.06);
+  box-shadow: 0 6px 18px rgba(37, 42, 44, 0.05);
+}
+
+.brand {
+  order: 0;
+}
+
+.primary-panel {
+  order: 1;
+  border-color: rgba(36, 107, 95, 0.42);
+  box-shadow: 0 12px 34px rgba(36, 107, 95, 0.12);
+}
+
+.rhythm-panel {
+  order: 2;
+}
+
+.profile-panel {
+  order: 3;
+}
+
+.template-panel {
+  order: 4;
+}
+
+.settings-panel {
+  order: 5;
+}
+
+.settings-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -16px;
+  padding: 16px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.settings-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-panel summary span:last-child {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.settings-panel[open] {
+  display: grid;
+  gap: 13px;
+}
+
+.settings-panel[open] summary {
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--line);
 }
 
 .compact,
@@ -303,6 +380,10 @@ select:focus {
   padding: 16px;
 }
 
+.template-list.flush {
+  padding: 0;
+}
+
 .template-list button,
 .custom-template-list button {
   min-height: 40px;
@@ -322,7 +403,7 @@ select:focus {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 24px;
+  padding: 20px;
 }
 
 .topbar {
@@ -335,8 +416,8 @@ select:focus {
 
 .topbar h2 {
   max-width: 760px;
-  font-size: clamp(1.6rem, 3vw, 2.55rem);
-  line-height: 1.04;
+  font-size: 1.55rem;
+  line-height: 1.12;
   letter-spacing: 0;
 }
 
@@ -376,8 +457,8 @@ select:focus {
 
 .planner-layout {
   display: grid;
-  grid-template-columns: minmax(420px, 1fr) 340px;
-  gap: 20px;
+  grid-template-columns: minmax(560px, 1fr) minmax(250px, 280px);
+  gap: 16px;
   align-items: start;
 }
 
@@ -385,11 +466,11 @@ select:focus {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: min(72vh, 760px);
+  min-height: min(82vh, 900px);
 }
 
 #clockSvg {
-  width: min(100%, 720px);
+  width: min(100%, 880px);
   aspect-ratio: 1;
   overflow: visible;
   filter: drop-shadow(var(--shadow));
@@ -564,6 +645,19 @@ select:focus {
   stroke-width: 48;
 }
 
+.event-label {
+  fill: #fffefa;
+  stroke: rgba(30, 34, 36, 0.5);
+  stroke-width: 3px;
+  paint-order: stroke;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
 .draft-arc {
   fill: none;
   opacity: 0.38;
@@ -590,6 +684,8 @@ select:focus {
   .sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--line);
+    max-height: none;
+    overflow: visible;
   }
 
   .planner-layout {
@@ -603,6 +699,10 @@ select:focus {
 }
 
 @media (max-width: 620px) {
+  body {
+    padding-bottom: 74px;
+  }
+
   .sidebar,
   .main {
     padding: 16px;
@@ -622,6 +722,40 @@ select:focus {
 
   .two-cols {
     grid-template-columns: 1fr;
+  }
+
+  .mobile-nav {
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(255, 254, 250, 0.94);
+    box-shadow: 0 14px 38px rgba(37, 42, 44, 0.18);
+    backdrop-filter: blur(16px);
+    padding: 6px;
+  }
+
+  .mobile-nav button {
+    display: grid;
+    place-items: center;
+    gap: 3px;
+    min-height: 50px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  .mobile-nav button:active {
+    background: #ece8dc;
   }
 }
 

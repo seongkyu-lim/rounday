@@ -1,15 +1,16 @@
 const STORAGE_KEY = "rounday-events-v2";
 const LEGACY_STORAGE_KEY = "rounday-events-v1";
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
+const GITHUB_TOKEN_KEY = "rounday-github-token";
+const GITHUB_PKCE_KEY = "rounday-github-pkce";
+const GITHUB_CONFIG_KEY = "rounday-github-config";
 const palette = ["#e35d4f", "#f3ad3e", "#246b5f", "#3078b8", "#7d5cc6", "#2f9f9b", "#d85d90"];
 
 const defaultEvents = [
-  { id: crypto.randomUUID(), title: "수면", start: "00:00", end: "07:00", type: "rest", color: "#7d5cc6" },
-  { id: crypto.randomUUID(), title: "아침 루틴", start: "07:00", end: "08:00", type: "life", color: "#f3ad3e" },
-  { id: crypto.randomUUID(), title: "집중 작업", start: "09:00", end: "12:00", type: "focus", color: "#246b5f" },
-  { id: crypto.randomUUID(), title: "점심", start: "12:00", end: "13:00", type: "life", color: "#e35d4f" },
-  { id: crypto.randomUUID(), title: "학습", start: "15:00", end: "17:00", type: "learn", color: "#3078b8" },
-  { id: crypto.randomUUID(), title: "운동", start: "18:30", end: "19:30", type: "health", color: "#2f9f9b" },
+  { id: crypto.randomUUID(), title: "수면", start: "22:00", end: "06:00", type: "rest", color: "#7d5cc6" },
+  { id: crypto.randomUUID(), title: "아침식사", start: "08:30", end: "09:30", type: "life", color: "#f3ad3e" },
+  { id: crypto.randomUUID(), title: "점심식사", start: "12:00", end: "13:00", type: "life", color: "#e35d4f" },
+  { id: crypto.randomUUID(), title: "저녁식사", start: "18:00", end: "19:00", type: "life", color: "#2f9f9b" },
 ];
 
 const templates = {
@@ -37,6 +38,8 @@ let selectedColor = palette[0];
 let activeEventId = "";
 let draftSelection = null;
 let dragState = null;
+let deferredInstallPrompt = null;
+let selectedScheduleDate = todayString();
 
 const $ = (selector) => document.querySelector(selector);
 const clockSvg = $("#clockSvg");
@@ -59,11 +62,79 @@ let serverSyncTimer = null;
 let syncMessage = "";
 const canUseServer = location.protocol !== "file:";
 
+function getGithubConfig() {
+  try {
+    return JSON.parse(localStorage.getItem(GITHUB_CONFIG_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function configuredGithubClientId() {
+  return window.RoundayConfig?.githubClientId || getGithubConfig().clientId || "";
+}
+
+function saveGithubConfig(config) {
+  localStorage.setItem(GITHUB_CONFIG_KEY, JSON.stringify(config));
+}
+
+function getGithubToken() {
+  return sessionStorage.getItem(GITHUB_TOKEN_KEY);
+}
+
+function base64Url(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function sha256(value) {
+  return crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+}
+
+function randomString(length = 64) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+  const values = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(values, (value) => alphabet[value % alphabet.length]).join("");
+}
+
+function base64Json(value) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(value, null, 2))));
+}
+
+function parseBase64Json(value) {
+  return JSON.parse(decodeURIComponent(escape(atob(value))));
+}
+
+async function githubRequest(path, options = {}) {
+  const token = getGithubToken();
+  if (!token) throw new Error("GitHub 로그인이 필요합니다.");
+  const response = await fetch(`https://api.github.com${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(options.headers || {}),
+    },
+  });
+  const body = response.status === 204 ? null : await response.json().catch(() => null);
+  if (!response.ok) throw new Error(body?.message || "GitHub API 요청에 실패했습니다.");
+  return body;
+}
+
 state = loadSharedState() || loadState();
+selectedScheduleDate = state.activeDate || todayString();
+ensureDailyPlan(selectedScheduleDate);
 events = activeProfile().events;
 
 function cloneEvents(source) {
   return source.map((event) => ({ ...event, id: crypto.randomUUID(), repeat: Boolean(event.repeat) }));
+}
+
+function todayString() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
 function createProfile(name, source = []) {
@@ -110,6 +181,7 @@ function normalizeState(candidate) {
 }
 
 function createState(profiles, activeProfileId, source = {}) {
+  const dailyPlans = normalizeDailyPlans(source.dailyPlans);
   return {
     schemaVersion: SCHEMA_VERSION,
     userId: typeof source.userId === "string" ? source.userId : null,
@@ -120,7 +192,9 @@ function createState(profiles, activeProfileId, source = {}) {
         }
       : null,
     activeProfileId,
+    activeDate: typeof source.activeDate === "string" ? source.activeDate : todayString(),
     profiles,
+    dailyPlans,
     templates: Array.isArray(source.templates)
       ? source.templates.map((template, index) => ({
           id: typeof template.id === "string" ? template.id : crypto.randomUUID(),
@@ -134,6 +208,20 @@ function createState(profiles, activeProfileId, source = {}) {
       lastSyncedAt: source.sync?.lastSyncedAt || null,
     },
   };
+}
+
+function normalizeDailyPlans(source) {
+  if (!source || typeof source !== "object") return {};
+  return Object.entries(source).reduce((plans, [date, plan]) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return plans;
+    const rawEvents = Array.isArray(plan) ? plan : plan?.events;
+    if (!Array.isArray(rawEvents)) return plans;
+    plans[date] = {
+      events: rawEvents.map(normalizeEvent),
+      updatedAt: typeof plan?.updatedAt === "string" ? plan.updatedAt : null,
+    };
+    return plans;
+  }, {});
 }
 
 function loadState() {
@@ -162,12 +250,36 @@ function syncActiveEvents() {
   events = activeProfile().events;
 }
 
+function ensureDailyPlan(date) {
+  if (!state.dailyPlans) state.dailyPlans = {};
+  if (!state.dailyPlans[date]) {
+    const migratingExistingPlan = Object.keys(state.dailyPlans).length === 0 && activeProfile().events.length > 0;
+    state.dailyPlans[date] = {
+      events: cloneEvents(migratingExistingPlan ? activeProfile().events : defaultEvents),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  activeProfile().events = state.dailyPlans[date].events;
+  state.activeDate = date;
+}
+
+function syncCurrentDailyPlan() {
+  if (!selectedScheduleDate) return;
+  if (!state.dailyPlans) state.dailyPlans = {};
+  state.dailyPlans[selectedScheduleDate] = {
+    events,
+    updatedAt: new Date().toISOString(),
+  };
+  state.activeDate = selectedScheduleDate;
+}
+
 function setEvents(nextEvents) {
   activeProfile().events = nextEvents;
   syncActiveEvents();
 }
 
 function saveState() {
+  syncCurrentDailyPlan();
   state.updatedAt = new Date().toISOString();
   lastSave = storageAdapter.save(state);
   scheduleServerSave();
@@ -296,6 +408,17 @@ function arcPath(cx, cy, radius, startMinutes, endMinutes) {
   return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`;
 }
 
+function minutesBetween(startMinutes, endMinutes) {
+  return (endMinutes - startMinutes + 1440) % 1440 || 1440;
+}
+
+function truncateClockTitle(title, duration) {
+  const trimmed = title.trim();
+  if (duration < 45 || !trimmed) return "";
+  const maxLength = Math.max(4, Math.min(14, Math.floor(duration / 18)));
+  return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength - 1)}…` : trimmed;
+}
+
 function snapMinutes(minutes, step = 15) {
   return Math.round(minutes / step) * step;
 }
@@ -343,6 +466,7 @@ function renderClock() {
   [...events].sort(sortByStart).forEach((event) => {
     const start = timeToMinutes(event.start);
     const end = timeToMinutes(event.end);
+    const duration = minutesBetween(start, end);
     const path = svgEl("path", {
       d: arcPath(310, 310, 218, start, end),
       class: "event-arc",
@@ -354,6 +478,19 @@ function renderClock() {
     path.addEventListener("pointerdown", (pointerEvent) => pointerEvent.stopPropagation());
     path.addEventListener("click", () => editEvent(event.id));
     clockSvg.appendChild(path);
+
+    const title = truncateClockTitle(event.title, duration);
+    if (title) {
+      const mid = (start + duration / 2) % 1440;
+      const labelPoint = polar(310, 310, 207, mid);
+      const label = svgEl("text", {
+        x: labelPoint.x,
+        y: labelPoint.y,
+        class: "event-label",
+      });
+      label.textContent = title;
+      clockSvg.appendChild(label);
+    }
   });
 
   if (draftSelection) {
@@ -541,10 +678,12 @@ function renderPersistenceStatus() {
   const savedAt = lastSave?.savedAt || state.updatedAt;
   const label = savedAt ? new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
   const scope = state.account ? "서버 개인 저장" : "로컬 저장";
-  $("#syncStatus").textContent = `${scope} · ${label}`;
+  $("#syncStatus").textContent = `${selectedScheduleDate} · ${scope} · ${label}`;
+  $("#selectedDateLabel").textContent = selectedScheduleDate === todayString() ? "오늘" : selectedScheduleDate.slice(5);
 }
 
 function renderAccountControls() {
+  if (!$("#accountState")) return;
   const signedIn = Boolean(state.account?.email);
   $("#accountState").textContent = signedIn ? "로그인됨" : "오프라인";
   $("#accountEmailInput").value = state.account?.email || "";
@@ -601,6 +740,7 @@ function renderAll() {
   renderProfileControls();
   renderCustomTemplates();
   renderAccountControls();
+  renderGithubControls();
   renderPersistenceStatus();
   renderInsights();
   renderClock();
@@ -783,6 +923,218 @@ function importJson(file) {
   reader.readAsText(file);
 }
 
+async function startGithubLogin() {
+  const clientId = configuredGithubClientId().trim();
+  if (!clientId) {
+    setGithubFeedback("배포 설정에 GitHub OAuth Client ID가 필요합니다.", true);
+    return;
+  }
+  setGithubFeedback("GitHub 로그인으로 이동합니다.", false);
+  const verifier = randomString();
+  const stateValue = randomString(32);
+  const challenge = base64Url(await sha256(verifier));
+  sessionStorage.setItem(GITHUB_PKCE_KEY, JSON.stringify({ verifier, state: stateValue }));
+  saveGithubConfig({
+    ...getGithubConfig(),
+    clientId: getGithubConfig().clientId || clientId,
+    owner: $("#repoOwnerInput").value.trim(),
+    repo: $("#repoNameInput").value.trim() || "rounday-data",
+  });
+
+  const redirectUri = `${location.origin}${location.pathname}`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: "repo",
+    state: stateValue,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  });
+  location.href = `https://github.com/login/oauth/authorize?${params}`;
+}
+
+async function completeGithubLogin() {
+  const params = new URLSearchParams(location.search);
+  const code = params.get("code");
+  const stateValue = params.get("state");
+  if (!code) return;
+
+  const pkce = JSON.parse(sessionStorage.getItem(GITHUB_PKCE_KEY) || "null");
+  const config = getGithubConfig();
+  history.replaceState({}, document.title, `${location.origin}${location.pathname}${location.hash}`);
+  if (!pkce || pkce.state !== stateValue || !config.clientId) {
+    formError.textContent = "GitHub 로그인 상태를 확인할 수 없습니다.";
+    return;
+  }
+
+  try {
+    const response = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: config.clientId,
+        code,
+        redirect_uri: `${location.origin}${location.pathname}`,
+        code_verifier: pkce.verifier,
+      }),
+    });
+    const token = await response.json();
+    if (!response.ok || !token.access_token) throw new Error(token.error_description || "GitHub token 교환에 실패했습니다.");
+    sessionStorage.setItem(GITHUB_TOKEN_KEY, token.access_token);
+    sessionStorage.removeItem(GITHUB_PKCE_KEY);
+    await hydrateGithubUser();
+  } catch (error) {
+    formError.textContent = error.message;
+  }
+}
+
+async function hydrateGithubUser() {
+  const config = getGithubConfig();
+  if (!getGithubToken()) {
+    renderGithubControls();
+    return;
+  }
+  const user = await githubRequest("/user");
+  saveGithubConfig({
+    ...config,
+    owner: config.owner || user.login,
+    repo: config.repo || "rounday-data",
+    login: user.login,
+  });
+  renderGithubControls();
+}
+
+function renderGithubControls() {
+  const config = getGithubConfig();
+  const connected = Boolean(getGithubToken());
+  $("#repoOwnerInput").value = config.owner || config.login || "";
+  $("#repoNameInput").value = config.repo || "rounday-data";
+  $("#githubState").textContent = connected ? config.login || "연결됨" : "미연결";
+  setGithubFeedback(
+    connected
+      ? "연결되었습니다. 선택한 날짜를 저장하거나 불러올 수 있습니다."
+      : configuredGithubClientId()
+        ? "GitHub 로그인을 시작할 수 있습니다."
+        : "배포 설정에 GitHub OAuth Client ID가 필요합니다.",
+    false,
+  );
+  $("#githubLogoutBtn").disabled = !connected;
+}
+
+function setGithubFeedback(message, isError = false) {
+  const target = $("#githubFeedback");
+  if (!target) return;
+  target.textContent = message;
+  target.classList.toggle("danger-text", isError);
+}
+
+function persistGithubFormConfig() {
+  saveGithubConfig({
+    ...getGithubConfig(),
+    clientId: getGithubConfig().clientId || configuredGithubClientId().trim(),
+    owner: $("#repoOwnerInput").value.trim(),
+    repo: $("#repoNameInput").value.trim() || "rounday-data",
+  });
+}
+
+function schedulePath(date) {
+  const [year, month] = date.split("-");
+  return `data/schedules/${year}/${month}/${date}.json`;
+}
+
+function currentSchedulePayload(date) {
+  return {
+    date,
+    profileId: activeProfile().id,
+    profileName: activeProfile().name,
+    events,
+    templates: state.templates,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function createGithubDataRepo() {
+  persistGithubFormConfig();
+  const repo = $("#repoNameInput").value.trim() || "rounday-data";
+  await githubRequest("/user/repos", {
+    method: "POST",
+    body: JSON.stringify({
+      name: repo,
+      private: true,
+      description: "Rounday schedule data",
+      has_issues: false,
+      has_projects: false,
+      has_wiki: false,
+      auto_init: true,
+    }),
+  });
+  $("#githubState").textContent = "repo 생성됨";
+}
+
+async function saveScheduleToGithub() {
+  persistGithubFormConfig();
+  const config = getGithubConfig();
+  const date = $("#scheduleDateInput").value;
+  const path = schedulePath(date);
+  let sha;
+  try {
+    const existing = await githubRequest(`/repos/${config.owner}/${config.repo}/contents/${encodeURIComponent(path).replaceAll("%2F", "/")}`);
+    sha = existing.sha;
+  } catch {
+    sha = undefined;
+  }
+  await githubRequest(`/repos/${config.owner}/${config.repo}/contents/${encodeURIComponent(path).replaceAll("%2F", "/")}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      message: `Save Rounday schedule for ${date}`,
+      content: base64Json(currentSchedulePayload(date)),
+      sha,
+    }),
+  });
+  $("#githubState").textContent = "저장됨";
+}
+
+async function loadScheduleFromGithub() {
+  persistGithubFormConfig();
+  const config = getGithubConfig();
+  const date = $("#scheduleDateInput").value;
+  const path = schedulePath(date);
+  const file = await githubRequest(`/repos/${config.owner}/${config.repo}/contents/${encodeURIComponent(path).replaceAll("%2F", "/")}`);
+  const payload = parseBase64Json(file.content.replace(/\s/g, ""));
+  const nextEvents = (payload.events || []).map(normalizeEvent);
+  setEvents(nextEvents);
+  state.dailyPlans[date] = {
+    events: nextEvents,
+    updatedAt: payload.updatedAt || new Date().toISOString(),
+  };
+  if (Array.isArray(payload.templates)) state.templates = payload.templates.map((template) => ({
+    id: typeof template.id === "string" ? template.id : crypto.randomUUID(),
+    name: typeof template.name === "string" ? template.name : "가져온 템플릿",
+    events: Array.isArray(template.events) ? template.events.map(normalizeEvent) : [],
+  }));
+  resetForm();
+  renderAll();
+  $("#githubState").textContent = "불러옴";
+}
+
+function changeScheduleDate(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  syncCurrentDailyPlan();
+  selectedScheduleDate = date;
+  ensureDailyPlan(date);
+  syncActiveEvents();
+  resetForm();
+  renderAll();
+}
+
+function logoutGithub() {
+  sessionStorage.removeItem(GITHUB_TOKEN_KEY);
+  renderGithubControls();
+}
+
 async function signIn() {
   const email = $("#accountEmailInput").value.trim().toLowerCase();
   const password = $("#accountPasswordInput").value;
@@ -906,6 +1258,36 @@ function refreshIcons() {
   });
 }
 
+function renderInstallState() {
+  $("#installAppBtn").classList.toggle("hidden", !deferredInstallPrompt);
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker
+    .register("./sw.js")
+    .then((registration) => {
+      registration.update();
+      if (registration.waiting) registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      registration.addEventListener("updatefound", () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "installed" && navigator.serviceWorker.controller) worker.postMessage({ type: "SKIP_WAITING" });
+        });
+      });
+    })
+    .catch(() => {
+      $("#syncStatus").textContent = "오프라인 캐시 등록 실패";
+    });
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (sessionStorage.getItem("rounday-sw-refreshing")) return;
+    sessionStorage.setItem("rounday-sw-refreshing", "1");
+    location.reload();
+  });
+}
+
 document.querySelectorAll("[data-template]").forEach((button) => {
   button.addEventListener("click", () => applyTemplate(button.dataset.template));
 });
@@ -932,8 +1314,33 @@ $("#profileNameInput").addEventListener("change", (event) => renameActiveProfile
 $("#importBtn").addEventListener("click", () => $("#importInput").click());
 $("#importInput").addEventListener("change", (event) => importJson(event.target.files[0]));
 $("#saveTemplateBtn").addEventListener("click", saveCurrentTemplate);
-$("#signInBtn").addEventListener("click", signIn);
-$("#signOutBtn").addEventListener("click", signOut);
+$("#githubLoginBtn").addEventListener("click", () => startGithubLogin().catch((error) => setGithubFeedback(error.message, true)));
+$("#githubLogoutBtn").addEventListener("click", logoutGithub);
+$("#createRepoBtn").addEventListener("click", () => createGithubDataRepo().catch((error) => (formError.textContent = error.message)));
+$("#saveGithubBtn").addEventListener("click", () => saveScheduleToGithub().catch((error) => (formError.textContent = error.message)));
+$("#loadGithubBtn").addEventListener("click", () => loadScheduleFromGithub().catch((error) => (formError.textContent = error.message)));
+$("#scheduleDateInput").addEventListener("change", (event) => changeScheduleDate(event.target.value));
+$("#signInBtn")?.addEventListener("click", signIn);
+$("#signOutBtn")?.addEventListener("click", signOut);
+$("#installAppBtn").addEventListener("click", async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  renderInstallState();
+});
+
+document.querySelectorAll("[data-scroll-target]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.getElementById(button.dataset.scrollTarget)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  renderInstallState();
+});
 
 clockSvg.addEventListener("pointerdown", (event) => {
   if (event.target.closest(".event-arc")) return;
@@ -978,6 +1385,11 @@ document.addEventListener("keydown", (event) => {
 });
 
 resetForm();
+$("#scheduleDateInput").value = selectedScheduleDate;
+renderGithubControls();
+completeGithubLogin();
+if (getGithubToken()) hydrateGithubUser().catch(() => logoutGithub());
+registerServiceWorker();
 renderAll();
 restoreServerSession();
 setInterval(() => {
