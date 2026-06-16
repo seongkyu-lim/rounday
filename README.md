@@ -6,6 +6,7 @@
 
 - 24시간 원형 시계 뷰
 - 일정 추가, 수정, 삭제
+- 날짜별 계획 저장과 지난 날짜 보기
 - 자정 넘김 일정 지원
 - 겹치는 일정 표시
 - 계획 시간, 빈 시간, 블록 수 통계
@@ -39,9 +40,11 @@ Rounday는 GitHub OAuth PKCE 로그인 후 사용자가 선택한 repo에 날짜
 
 1. GitHub OAuth App을 생성합니다.
 2. Authorization callback URL은 배포된 `index.html` 경로와 동일하게 맞춥니다.
-3. 앱 화면의 `OAuth Client ID` 입력칸에 Client ID를 입력합니다.
+3. `config.example.js`를 `config.js`로 복사한 뒤 Client ID를 입력합니다.
 
-앱 안에서 Client ID를 직접 입력해도 됩니다. 저장 파일은 `data/schedules/YYYY/MM/YYYY-MM-DD.json` 경로에 commit됩니다.
+`config.js`가 설정되어 있으면 GitHub 로그인 버튼만 눌러도 OAuth 페이지로 이동합니다. 저장 파일은 `data/schedules/YYYY/MM/YYYY-MM-DD.json` 경로에 commit됩니다.
+
+GitHub Pages 배포에서는 repository variable `ROUNDAY_GITHUB_CLIENT_ID` 값으로 `config.js`가 자동 생성됩니다.
 
 ## 배포
 
