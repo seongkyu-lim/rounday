@@ -6,12 +6,13 @@
     <meta name="description" content="Rounday is a circular daily planner for building and sharing 24-hour routines." />
     <meta name="theme-color" content="#246b5f" />
     <title>Rounday - 원형 하루 시간표</title>
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar" aria-label="시간표 설정">
+      <aside class="sidebar" id="editorPanel" aria-label="시간표 설정">
         <div class="brand">
           <div class="brand-mark">24</div>
           <div>
@@ -20,7 +21,7 @@
           </div>
         </div>
 
-        <section class="panel compact">
+        <section class="panel compact profile-panel">
           <div class="section-title">
             <h2>데이 프로필</h2>
             <div class="mini-actions">
@@ -42,11 +43,21 @@
           </label>
         </section>
 
-        <section class="panel compact">
+        <section class="panel compact date-panel">
           <div class="section-title">
-            <h2>계정</h2>
-            <span id="accountState">오프라인</span>
+            <h2>계획 날짜</h2>
           </div>
+          <label>
+            날짜
+            <input id="scheduleDateInput" type="date" />
+          </label>
+        </section>
+
+        <details class="panel compact settings-panel" hidden data-archived="account">
+          <summary>
+            <span>계정</span>
+            <span id="accountState">오프라인</span>
+          </summary>
           <label>
             이메일
             <input id="accountEmailInput" type="email" placeholder="you@example.com" />
@@ -64,9 +75,41 @@
               <i data-lucide="log-out"></i>
             </button>
           </div>
-        </section>
+        </details>
 
-        <section class="panel compact">
+        <details class="panel compact settings-panel">
+          <summary>
+            <span>GitHub 저장</span>
+            <span id="githubState">미연결</span>
+          </summary>
+          <p id="githubFeedback" class="panel-note">GitHub 로그인을 시작할 수 있습니다.</p>
+          <div class="account-actions">
+            <button class="primary-button" type="button" id="githubLoginBtn">
+              <i data-lucide="git-branch"></i>
+              GitHub 로그인
+            </button>
+            <button class="icon-button" type="button" id="githubLogoutBtn" aria-label="GitHub 연결 해제">
+              <i data-lucide="unlink"></i>
+            </button>
+          </div>
+          <div class="two-cols">
+            <label>
+              Owner
+              <input id="repoOwnerInput" type="text" placeholder="username" />
+            </label>
+            <label>
+              Repo
+              <input id="repoNameInput" type="text" placeholder="rounday-data" />
+            </label>
+          </div>
+          <div class="template-list flush">
+            <button type="button" id="createRepoBtn">데이터 repo 만들기</button>
+            <button type="button" id="saveGithubBtn">선택 날짜 저장</button>
+            <button type="button" id="loadGithubBtn">선택 날짜 불러오기</button>
+          </div>
+        </details>
+
+        <section class="panel compact rhythm-panel">
           <div class="section-title">
             <h2>오늘의 리듬</h2>
             <span id="completionText">0%</span>
@@ -90,7 +133,7 @@
           </div>
         </section>
 
-        <form id="eventForm" class="panel form-panel">
+        <form id="eventForm" class="panel form-panel primary-panel">
           <input type="hidden" id="eventId" />
           <div class="section-title">
             <h2 id="formTitle">일정 추가</h2>
@@ -101,7 +144,7 @@
 
           <label>
             이름
-            <input id="titleInput" type="text" maxlength="28" placeholder="예: 집중 작업" required />
+            <input id="titleInput" type="text" maxlength="28" placeholder="예: 아침식사" required />
           </label>
 
           <div class="two-cols">
@@ -143,7 +186,7 @@
           <p id="formError" class="form-error" role="alert"></p>
         </form>
 
-        <section class="panel">
+        <section class="panel template-panel">
           <div class="section-title">
             <h2>템플릿</h2>
             <button class="icon-button ghost" type="button" id="importBtn" aria-label="JSON 가져오기">
@@ -164,11 +207,14 @@
       <main class="main">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Circular daily planner</p>
-            <h2>시간을 시계처럼 배치하고 하루 흐름을 바로 확인하세요.</h2>
+            <p class="eyebrow">Rounday app</p>
+            <h2>오늘의 원형표</h2>
             <p id="syncStatus" class="sync-status">로컬 저장 준비됨</p>
           </div>
           <div class="actions">
+            <button class="icon-button hidden" type="button" id="installAppBtn" aria-label="앱 설치">
+              <i data-lucide="smartphone"></i>
+            </button>
             <button class="icon-button" type="button" id="shareBtn" aria-label="공유 링크 복사">
               <i data-lucide="link"></i>
             </button>
@@ -181,25 +227,25 @@
             <button class="icon-button" type="button" id="downloadBtn" aria-label="JSON 내보내기">
               <i data-lucide="download"></i>
             </button>
-            <button class="icon-button" type="button" id="resetBtn" aria-label="기본 예시로 되돌리기">
+            <button class="icon-button" type="button" id="resetBtn" aria-label="기본 일정으로 되돌리기">
               <i data-lucide="rotate-ccw"></i>
             </button>
           </div>
         </header>
 
         <section class="planner-layout">
-          <div class="clock-wrap" aria-label="원형 시간표">
+          <div class="clock-wrap" id="clockPanel" aria-label="원형 시간표">
             <svg id="clockSvg" viewBox="0 0 620 620" role="img" aria-labelledby="clockTitle clockDesc">
               <title id="clockTitle">원형 하루 시간표</title>
               <desc id="clockDesc">0시부터 24시까지의 일정 블록을 원형으로 표시합니다.</desc>
             </svg>
             <div class="clock-center">
               <span id="currentTime">--:--</span>
-              <strong>오늘</strong>
+              <strong id="selectedDateLabel">오늘</strong>
             </div>
           </div>
 
-          <aside class="timeline panel" aria-label="일정 목록">
+          <aside class="timeline panel" id="timelinePanel" aria-label="일정 목록">
             <div class="section-title">
               <h2>일정 목록</h2>
               <span id="conflictBadge" class="badge hidden">겹침</span>
@@ -210,8 +256,23 @@
         </section>
       </main>
     </div>
+    <nav class="mobile-nav" aria-label="앱 내비게이션">
+      <button type="button" data-scroll-target="editorPanel">
+        <i data-lucide="sliders-horizontal"></i>
+        <span>편집</span>
+      </button>
+      <button type="button" data-scroll-target="clockPanel">
+        <i data-lucide="clock-3"></i>
+        <span>원형표</span>
+      </button>
+      <button type="button" data-scroll-target="timelinePanel">
+        <i data-lucide="list-todo"></i>
+        <span>목록</span>
+      </button>
+    </nav>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./config.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
