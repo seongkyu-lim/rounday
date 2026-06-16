@@ -41,7 +41,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-columns: 330px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -396,7 +396,7 @@ select:focus {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 24px;
+  padding: 20px;
 }
 
 .topbar {
@@ -450,8 +450,8 @@ select:focus {
 
 .planner-layout {
   display: grid;
-  grid-template-columns: minmax(430px, 1fr) 340px;
-  gap: 20px;
+  grid-template-columns: minmax(560px, 1fr) minmax(250px, 280px);
+  gap: 16px;
   align-items: start;
 }
 
@@ -459,11 +459,11 @@ select:focus {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: min(72vh, 760px);
+  min-height: min(82vh, 900px);
 }
 
 #clockSvg {
-  width: min(100%, 720px);
+  width: min(100%, 880px);
   aspect-ratio: 1;
   overflow: visible;
   filter: drop-shadow(var(--shadow));
@@ -636,6 +636,19 @@ select:focus {
 .event-arc.active {
   opacity: 0.9;
   stroke-width: 48;
+}
+
+.event-label {
+  fill: #fffefa;
+  stroke: rgba(30, 34, 36, 0.5);
+  stroke-width: 3px;
+  paint-order: stroke;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
 }
 
 .draft-arc {
