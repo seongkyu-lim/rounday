@@ -346,6 +346,13 @@ select:focus {
   height: 42px;
 }
 
+.icon-fallback {
+  font-size: 0.98rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .icon-button:hover,
 .template-list button:hover {
   border-color: var(--accent);
