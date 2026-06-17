@@ -1,6 +1,7 @@
 const STORAGE_KEY = "rounday-events-v2";
 const LEGACY_STORAGE_KEY = "rounday-events-v1";
 const SCHEMA_VERSION = 3;
+const DEFAULT_SCHEDULE_VERSION = 2;
 const GITHUB_TOKEN_KEY = "rounday-github-token";
 const GITHUB_PKCE_KEY = "rounday-github-pkce";
 const GITHUB_CONFIG_KEY = "rounday-github-config";
@@ -14,6 +15,13 @@ const defaultEvents = [
   { id: crypto.randomUUID(), title: "육체단련", start: "18:00", end: "20:00", type: "health", color: "#246b5f" },
   { id: crypto.randomUUID(), title: "저녁식사", start: "20:00", end: "21:00", type: "life", color: "#2f9f9b" },
 ];
+
+const legacyDefaultSignature = [
+  "수면|22:00|06:00",
+  "아침식사|08:30|09:30",
+  "점심식사|12:00|13:00",
+  "저녁식사|18:00|19:00",
+].sort();
 
 const templates = {
   student: [
@@ -167,6 +175,41 @@ function normalizeEvent(event) {
   };
 }
 
+function eventSignature(event) {
+  return `${event.title}|${event.start}|${event.end}`;
+}
+
+function isLegacyDefaultSchedule(source) {
+  if (!Array.isArray(source) || source.length !== legacyDefaultSignature.length) return false;
+  const signatures = source.map(eventSignature).sort();
+  return legacyDefaultSignature.every((signature, index) => signatures[index] === signature);
+}
+
+function migrateDefaultSchedules(nextState, source = {}) {
+  if (source.defaultScheduleVersion >= DEFAULT_SCHEDULE_VERSION) {
+    nextState.defaultScheduleVersion = source.defaultScheduleVersion;
+    return nextState;
+  }
+
+  nextState.profiles = nextState.profiles.map((profile) => ({
+    ...profile,
+    events: isLegacyDefaultSchedule(profile.events) ? cloneEvents(defaultEvents) : profile.events,
+  }));
+
+  nextState.dailyPlans = Object.fromEntries(
+    Object.entries(nextState.dailyPlans).map(([date, plan]) => [
+      date,
+      {
+        ...plan,
+        events: isLegacyDefaultSchedule(plan.events) ? cloneEvents(defaultEvents) : plan.events,
+      },
+    ]),
+  );
+
+  nextState.defaultScheduleVersion = DEFAULT_SCHEDULE_VERSION;
+  return nextState;
+}
+
 function normalizeState(candidate) {
   if (Array.isArray(candidate)) {
     const profile = createProfile("기본 하루", candidate.map(normalizeEvent));
@@ -192,8 +235,9 @@ function normalizeState(candidate) {
 
 function createState(profiles, activeProfileId, source = {}) {
   const dailyPlans = normalizeDailyPlans(source.dailyPlans);
-  return {
+  return migrateDefaultSchedules({
     schemaVersion: SCHEMA_VERSION,
+    defaultScheduleVersion: typeof source.defaultScheduleVersion === "number" ? source.defaultScheduleVersion : 0,
     userId: typeof source.userId === "string" ? source.userId : null,
     account: source.account
       ? {
@@ -217,7 +261,7 @@ function createState(profiles, activeProfileId, source = {}) {
       provider: source.sync?.provider || "local",
       lastSyncedAt: source.sync?.lastSyncedAt || null,
     },
-  };
+  }, source);
 }
 
 function normalizeDailyPlans(source) {
