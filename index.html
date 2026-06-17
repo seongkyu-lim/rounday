@@ -6,6 +6,7 @@
     <meta name="description" content="Rounday is a circular daily planner for building and sharing 24-hour routines." />
     <meta name="theme-color" content="#246b5f" />
     <title>Rounday - 원형 하루 시간표</title>
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -42,6 +43,16 @@
           </label>
         </section>
 
+        <section class="panel compact date-panel">
+          <div class="section-title">
+            <h2>계획 날짜</h2>
+          </div>
+          <label>
+            날짜
+            <input id="scheduleDateInput" type="date" />
+          </label>
+        </section>
+
         <details class="panel compact settings-panel" hidden data-archived="account">
           <summary>
             <span>계정</span>
@@ -51,10 +62,14 @@
             이메일
             <input id="accountEmailInput" type="email" placeholder="you@example.com" />
           </label>
+          <label>
+            비밀번호
+            <input id="accountPasswordInput" type="password" minlength="6" autocomplete="current-password" />
+          </label>
           <div class="account-actions">
             <button class="primary-button" type="button" id="signInBtn">
               <i data-lucide="log-in"></i>
-              로그인
+              로그인/가입
             </button>
             <button class="icon-button" type="button" id="signOutBtn" aria-label="로그아웃">
               <i data-lucide="log-out"></i>
@@ -67,11 +82,7 @@
             <span>GitHub 저장</span>
             <span id="githubState">미연결</span>
           </summary>
-          <p id="githubFeedback" class="panel-note">OAuth Client ID를 입력하면 GitHub 로그인을 시작할 수 있습니다.</p>
-          <label>
-            OAuth Client ID
-            <input id="githubClientInput" type="text" placeholder="GitHub OAuth App Client ID" />
-          </label>
+          <p id="githubFeedback" class="panel-note">GitHub 로그인을 시작할 수 있습니다.</p>
           <div class="account-actions">
             <button class="primary-button" type="button" id="githubLoginBtn">
               <i data-lucide="git-branch"></i>
@@ -91,13 +102,9 @@
               <input id="repoNameInput" type="text" placeholder="rounday-data" />
             </label>
           </div>
-          <label>
-            날짜
-            <input id="scheduleDateInput" type="date" />
-          </label>
           <div class="template-list flush">
             <button type="button" id="createRepoBtn">데이터 repo 만들기</button>
-            <button type="button" id="saveGithubBtn">오늘 계획 저장</button>
+            <button type="button" id="saveGithubBtn">선택 날짜 저장</button>
             <button type="button" id="loadGithubBtn">선택 날짜 불러오기</button>
           </div>
         </details>
@@ -137,7 +144,7 @@
 
           <label>
             이름
-            <input id="titleInput" type="text" maxlength="28" placeholder="예: 집중 작업" required />
+            <input id="titleInput" type="text" maxlength="28" placeholder="예: 아침식사" required />
           </label>
 
           <div class="two-cols">
@@ -220,7 +227,7 @@
             <button class="icon-button" type="button" id="downloadBtn" aria-label="JSON 내보내기">
               <i data-lucide="download"></i>
             </button>
-            <button class="icon-button" type="button" id="resetBtn" aria-label="기본 예시로 되돌리기">
+            <button class="icon-button" type="button" id="resetBtn" aria-label="기본 일정으로 되돌리기">
               <i data-lucide="rotate-ccw"></i>
             </button>
           </div>
@@ -234,7 +241,7 @@
             </svg>
             <div class="clock-center">
               <span id="currentTime">--:--</span>
-              <strong>오늘</strong>
+              <strong id="selectedDateLabel">오늘</strong>
             </div>
           </div>
 
@@ -265,6 +272,7 @@
     </nav>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./config.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

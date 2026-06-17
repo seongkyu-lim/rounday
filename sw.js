@@ -1,4 +1,4 @@
-const CACHE_NAME = "rounday-app-v2";
+const CACHE_NAME = "rounday-app-v4";
 const APP_SHELL = [
   "./",
   "./index.html",

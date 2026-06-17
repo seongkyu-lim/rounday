@@ -41,7 +41,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-columns: 310px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -346,6 +346,13 @@ select:focus {
   height: 42px;
 }
 
+.icon-fallback {
+  font-size: 0.98rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .icon-button:hover,
 .template-list button:hover {
   border-color: var(--accent);
@@ -396,7 +403,7 @@ select:focus {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 24px;
+  padding: 16px 18px;
 }
 
 .topbar {
@@ -404,7 +411,7 @@ select:focus {
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 }
 
 .topbar h2 {
@@ -450,8 +457,8 @@ select:focus {
 
 .planner-layout {
   display: grid;
-  grid-template-columns: minmax(430px, 1fr) 340px;
-  gap: 20px;
+  grid-template-columns: minmax(660px, 1fr) minmax(230px, 260px);
+  gap: 16px;
   align-items: start;
 }
 
@@ -459,11 +466,11 @@ select:focus {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: min(72vh, 760px);
+  min-height: min(88vh, 1040px);
 }
 
 #clockSvg {
-  width: min(100%, 720px);
+  width: min(100%, 1040px);
   aspect-ratio: 1;
   overflow: visible;
   filter: drop-shadow(var(--shadow));
@@ -475,7 +482,7 @@ select:focus {
   position: absolute;
   display: grid;
   place-items: center;
-  width: clamp(120px, 20vw, 180px);
+  width: clamp(124px, 18vw, 190px);
   aspect-ratio: 1;
   border: 1px solid var(--line);
   border-radius: 50%;
@@ -635,7 +642,25 @@ select:focus {
 .event-arc:hover,
 .event-arc.active {
   opacity: 0.9;
-  stroke-width: 48;
+  stroke-width: 54;
+}
+
+.event-label {
+  fill: #fffefa;
+  stroke: rgba(30, 34, 36, 0.5);
+  stroke-width: 3.5px;
+  paint-order: stroke;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.event-label-time {
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .draft-arc {
@@ -656,7 +681,7 @@ select:focus {
   fill: var(--ink);
 }
 
-@media (max-width: 1060px) {
+@media (max-width: 1240px) {
   .app-shell {
     grid-template-columns: 1fr;
   }
@@ -698,6 +723,15 @@ select:focus {
 
   .clock-wrap {
     min-height: auto;
+  }
+
+  .event-label {
+    font-size: 18px;
+    stroke-width: 4px;
+  }
+
+  .event-label-time {
+    font-size: 12px;
   }
 
   .two-cols {
