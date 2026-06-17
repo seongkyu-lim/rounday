@@ -414,9 +414,15 @@ function minutesBetween(startMinutes, endMinutes) {
 
 function truncateClockTitle(title, duration) {
   const trimmed = title.trim();
-  if (duration < 45 || !trimmed) return "";
-  const maxLength = Math.max(4, Math.min(14, Math.floor(duration / 18)));
+  if (duration < 25 || !trimmed) return "";
+  const maxLength = Math.max(5, Math.min(18, Math.floor(duration / 10)));
   return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength - 1)}…` : trimmed;
+}
+
+function clockEventLabelLines(event, duration) {
+  const title = truncateClockTitle(event.title, duration);
+  if (!title) return [];
+  return duration >= 75 ? [title, `${event.start}-${event.end}`] : [title];
 }
 
 function snapMinutes(minutes, step = 15) {
@@ -471,7 +477,7 @@ function renderClock() {
       d: arcPath(310, 310, 218, start, end),
       class: "event-arc",
       stroke: event.color,
-      "stroke-width": 38,
+      "stroke-width": 44,
       "data-id": event.id,
     });
     if (event.id === activeEventId) path.classList.add("active");
@@ -479,8 +485,8 @@ function renderClock() {
     path.addEventListener("click", () => editEvent(event.id));
     clockSvg.appendChild(path);
 
-    const title = truncateClockTitle(event.title, duration);
-    if (title) {
+    const labelLines = clockEventLabelLines(event, duration);
+    if (labelLines.length) {
       const mid = (start + duration / 2) % 1440;
       const labelPoint = polar(310, 310, 207, mid);
       const label = svgEl("text", {
@@ -488,7 +494,15 @@ function renderClock() {
         y: labelPoint.y,
         class: "event-label",
       });
-      label.textContent = title;
+      labelLines.forEach((line, index) => {
+        const tspan = svgEl("tspan", {
+          x: labelPoint.x,
+          dy: index === 0 ? (labelLines.length > 1 ? "-0.35em" : "0") : "1.15em",
+          class: index === 0 ? "event-label-title" : "event-label-time",
+        });
+        tspan.textContent = line;
+        label.appendChild(tspan);
+      });
       clockSvg.appendChild(label);
     }
   });
@@ -499,7 +513,7 @@ function renderClock() {
         d: arcPath(310, 310, 218, draftSelection.start, draftSelection.end),
         class: "draft-arc",
         stroke: selectedColor,
-        "stroke-width": 46,
+        "stroke-width": 52,
       }),
     );
   }
