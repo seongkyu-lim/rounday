@@ -642,20 +642,25 @@ select:focus {
 .event-arc:hover,
 .event-arc.active {
   opacity: 0.9;
-  stroke-width: 48;
+  stroke-width: 54;
 }
 
 .event-label {
   fill: #fffefa;
   stroke: rgba(30, 34, 36, 0.5);
-  stroke-width: 3px;
+  stroke-width: 3.5px;
   paint-order: stroke;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 900;
   letter-spacing: 0;
   text-anchor: middle;
   dominant-baseline: middle;
   pointer-events: none;
+}
+
+.event-label-time {
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .draft-arc {
@@ -718,6 +723,15 @@ select:focus {
 
   .clock-wrap {
     min-height: auto;
+  }
+
+  .event-label {
+    font-size: 18px;
+    stroke-width: 4px;
+  }
+
+  .event-label-time {
+    font-size: 12px;
   }
 
   .two-cols {
