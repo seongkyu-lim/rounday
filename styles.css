@@ -41,7 +41,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 330px minmax(0, 1fr);
+  grid-template-columns: 310px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -403,7 +403,7 @@ select:focus {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 20px;
+  padding: 16px 18px;
 }
 
 .topbar {
@@ -411,7 +411,7 @@ select:focus {
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 }
 
 .topbar h2 {
@@ -457,7 +457,7 @@ select:focus {
 
 .planner-layout {
   display: grid;
-  grid-template-columns: minmax(560px, 1fr) minmax(250px, 280px);
+  grid-template-columns: minmax(660px, 1fr) minmax(230px, 260px);
   gap: 16px;
   align-items: start;
 }
@@ -466,11 +466,11 @@ select:focus {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: min(82vh, 900px);
+  min-height: min(88vh, 1040px);
 }
 
 #clockSvg {
-  width: min(100%, 880px);
+  width: min(100%, 1040px);
   aspect-ratio: 1;
   overflow: visible;
   filter: drop-shadow(var(--shadow));
@@ -482,7 +482,7 @@ select:focus {
   position: absolute;
   display: grid;
   place-items: center;
-  width: clamp(120px, 20vw, 180px);
+  width: clamp(124px, 18vw, 190px);
   aspect-ratio: 1;
   border: 1px solid var(--line);
   border-radius: 50%;
@@ -681,7 +681,7 @@ select:focus {
   fill: var(--ink);
 }
 
-@media (max-width: 1060px) {
+@media (max-width: 1240px) {
   .app-shell {
     grid-template-columns: 1fr;
   }
