@@ -32,6 +32,14 @@ const templates = {
   ],
 };
 
+const typeLabels = {
+  focus: "집중",
+  health: "건강",
+  life: "생활",
+  learn: "학습",
+  rest: "휴식",
+};
+
 let state = null;
 let events = [];
 let selectedColor = palette[0];
@@ -582,11 +590,21 @@ function renderTimeline() {
     card.tabIndex = 0;
     card.dataset.card = event.id;
     card.style.setProperty("--event-color", event.color);
+    const meta = [
+      formatDuration(durationOf(event)),
+      typeLabels[event.type] || event.type,
+      event.repeat ? "반복" : "",
+      conflicts.has(event.id) ? "겹침" : "",
+    ].filter(Boolean);
     card.innerHTML = `
-      <div class="event-strip"></div>
+      <div class="event-time">
+        <span>${event.start}</span>
+        <span>${event.end}</span>
+      </div>
       <div>
         <h3>${escapeHtml(event.title)}${conflicts.has(event.id) ? " · 겹침" : ""}</h3>
-        <p>${event.start} - ${event.end} · ${formatDuration(durationOf(event))}${event.repeat ? " · 반복" : ""}</p>
+        <p>${event.start} - ${event.end}</p>
+        <div class="event-meta">${meta.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
       </div>
       <div class="card-actions">
         <button class="icon-button" type="button" aria-label="일정 편집" data-edit="${event.id}"><i data-lucide="pencil"></i></button>
@@ -624,11 +642,15 @@ function renderStats() {
   const planned = events.reduce((sum, event) => sum + durationOf(event), 0);
   const capped = Math.min(planned, 1440);
   const percent = Math.round((capped / 1440) * 100);
+  const free = Math.max(0, 1440 - planned);
   $("#completionText").textContent = `${percent}%`;
   $("#progressFill").style.width = `${percent}%`;
   $("#plannedHours").textContent = formatDuration(planned);
-  $("#freeHours").textContent = formatDuration(Math.max(0, 1440 - planned));
+  $("#freeHours").textContent = formatDuration(free);
   $("#blockCount").textContent = events.length;
+  $("#topPlannedHours").textContent = formatDuration(planned);
+  $("#topFreeHours").textContent = formatDuration(free);
+  $("#topBlockCount").textContent = events.length;
 }
 
 function getFreeSlots() {
@@ -1245,6 +1267,8 @@ function updateCurrentTime() {
 const iconFallbacks = {
   "copy-plus": "+",
   "trash-2": "x",
+  "git-branch": "G",
+  "unlink": "-",
   "log-in": ">",
   "log-out": "<",
   "x": "x",
@@ -1256,6 +1280,7 @@ const iconFallbacks = {
   "download": "v",
   "rotate-ccw": "R",
   "pencil": "/",
+  "smartphone": "M",
 };
 
 function refreshIcons() {
