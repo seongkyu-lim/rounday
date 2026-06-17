@@ -8,9 +8,11 @@ const palette = ["#e35d4f", "#f3ad3e", "#246b5f", "#3078b8", "#7d5cc6", "#2f9f9b
 
 const defaultEvents = [
   { id: crypto.randomUUID(), title: "수면", start: "22:00", end: "06:00", type: "rest", color: "#7d5cc6" },
+  { id: crypto.randomUUID(), title: "육체단련", start: "07:00", end: "08:00", type: "health", color: "#2f9f9b" },
   { id: crypto.randomUUID(), title: "아침식사", start: "08:30", end: "09:30", type: "life", color: "#f3ad3e" },
-  { id: crypto.randomUUID(), title: "점심식사", start: "12:00", end: "13:00", type: "life", color: "#e35d4f" },
-  { id: crypto.randomUUID(), title: "저녁식사", start: "18:00", end: "19:00", type: "life", color: "#2f9f9b" },
+  { id: crypto.randomUUID(), title: "점심식사", start: "12:30", end: "13:30", type: "life", color: "#e35d4f" },
+  { id: crypto.randomUUID(), title: "육체단련", start: "18:00", end: "20:00", type: "health", color: "#246b5f" },
+  { id: crypto.randomUUID(), title: "저녁식사", start: "20:00", end: "21:00", type: "life", color: "#2f9f9b" },
 ];
 
 const templates = {
@@ -453,9 +455,10 @@ function svgEl(tag, attrs = {}) {
 
 function renderClock() {
   clockSvg.replaceChildren();
-  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 250, fill: "#fffefa", stroke: "#d9d6ca", "stroke-width": 2 }));
-  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 196, fill: "none", stroke: "#ece8dc", "stroke-width": 1 }));
+  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 250, fill: "#ffffff", stroke: "#dde5e4", "stroke-width": 2 }));
+  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 196, fill: "none", stroke: "#e7eeee", "stroke-width": 1 }));
 
+  const hourLabels = [];
   for (let hour = 0; hour < 24; hour += 1) {
     const minutes = hour * 60;
     const outer = polar(310, 310, 270, minutes);
@@ -470,10 +473,10 @@ function renderClock() {
     clockSvg.appendChild(tick);
 
     if (hour % 3 === 0) {
-      const labelPoint = polar(310, 310, 226, minutes);
+      const labelPoint = polar(310, 310, 286, minutes);
       const label = svgEl("text", { x: labelPoint.x, y: labelPoint.y, class: "clock-label" });
       label.textContent = `${hour}`;
-      clockSvg.appendChild(label);
+      hourLabels.push(label);
     }
   }
 
@@ -525,6 +528,8 @@ function renderClock() {
       }),
     );
   }
+
+  hourLabels.forEach((label) => clockSvg.appendChild(label));
 
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
