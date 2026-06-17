@@ -503,23 +503,30 @@ function renderClock() {
   clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 196, fill: "none", stroke: "#e7eeee", "stroke-width": 1 }));
 
   const hourLabels = [];
-  for (let hour = 0; hour < 24; hour += 1) {
-    const minutes = hour * 60;
+  for (let step = 0; step < 96; step += 1) {
+    const minutes = step * 15;
+    const isHour = step % 4 === 0;
+    const isMajor = step % 12 === 0;
     const outer = polar(310, 310, 270, minutes);
-    const inner = polar(310, 310, hour % 3 === 0 ? 244 : 252, minutes);
+    const inner = polar(310, 310, isMajor ? 244 : isHour ? 250 : 258, minutes);
     const tick = svgEl("line", {
       x1: inner.x,
       y1: inner.y,
       x2: outer.x,
       y2: outer.y,
-      class: `tick ${hour % 3 === 0 ? "major" : "minor"}`,
+      class: `tick ${isMajor ? "major" : isHour ? "hour" : "minor"}`,
     });
     clockSvg.appendChild(tick);
 
-    if (hour % 3 === 0) {
+    if (isHour) {
+      const hour = minutes / 60;
       const labelPoint = polar(310, 310, 286, minutes);
-      const label = svgEl("text", { x: labelPoint.x, y: labelPoint.y, class: "clock-label" });
-      label.textContent = `${hour}`;
+      const label = svgEl("text", {
+        x: labelPoint.x,
+        y: labelPoint.y,
+        class: `clock-label ${isMajor ? "major" : "minor"}`,
+      });
+      label.textContent = hour.toString().padStart(2, "0");
       hourLabels.push(label);
     }
   }
@@ -697,9 +704,9 @@ function renderStats() {
   $("#plannedHours").textContent = formatDuration(planned);
   $("#freeHours").textContent = formatDuration(free);
   $("#blockCount").textContent = events.length;
-  $("#topPlannedHours").textContent = formatDuration(planned);
-  $("#topFreeHours").textContent = formatDuration(free);
-  $("#topBlockCount").textContent = events.length;
+  if ($("#topPlannedHours")) $("#topPlannedHours").textContent = formatDuration(planned);
+  if ($("#topFreeHours")) $("#topFreeHours").textContent = formatDuration(free);
+  if ($("#topBlockCount")) $("#topBlockCount").textContent = events.length;
 }
 
 function getFreeSlots() {
@@ -757,13 +764,13 @@ function renderInsights() {
 
 function renderPersistenceStatus() {
   if (syncMessage) {
-    $("#syncStatus").textContent = syncMessage;
+    if ($("#syncStatus")) $("#syncStatus").textContent = syncMessage;
     return;
   }
   const savedAt = lastSave?.savedAt || state.updatedAt;
   const label = savedAt ? new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
   const scope = state.account ? "서버 개인 저장" : "로컬 저장";
-  $("#syncStatus").textContent = `${selectedScheduleDate} · ${scope} · ${label}`;
+  if ($("#syncStatus")) $("#syncStatus").textContent = `${selectedScheduleDate} · ${scope} · ${label}`;
   $("#selectedDateLabel").textContent = selectedScheduleDate === todayString() ? "오늘" : selectedScheduleDate.slice(5);
 }
 
@@ -847,6 +854,8 @@ function applyClockSelection(start, end) {
   activeEventId = "";
   draftSelection = null;
   formError.textContent = "";
+  openDrawer("editor");
+  requestAnimationFrame(() => $("#eventForm").scrollIntoView({ behavior: "smooth", block: "start" }));
   renderClock();
   renderTimeline();
 }
@@ -901,6 +910,8 @@ function editEvent(id) {
   $("#submitText").textContent = "수정하기";
   $("#cancelEdit").classList.remove("hidden");
   formError.textContent = "";
+  openDrawer("editor");
+  requestAnimationFrame(() => $("#eventForm").scrollIntoView({ behavior: "smooth", block: "start" }));
   renderSwatches();
   renderClock();
   renderTimeline();
@@ -1293,7 +1304,7 @@ async function copyShareLink() {
     document.execCommand("copy");
     input.remove();
   }
-  $("#syncStatus").textContent = "공유 링크 복사됨";
+  if ($("#syncStatus")) $("#syncStatus").textContent = "공유 링크 복사됨";
 }
 
 function downloadClockSvg() {
@@ -1314,6 +1325,8 @@ function updateCurrentTime() {
 }
 
 const iconFallbacks = {
+  "menu": "=",
+  "list-todo": "L",
   "copy-plus": "+",
   "trash-2": "x",
   "git-branch": "G",
@@ -1350,6 +1363,21 @@ function renderInstallState() {
   $("#installAppBtn").classList.toggle("hidden", !deferredInstallPrompt);
 }
 
+function openDrawer(name) {
+  const editor = $("#editorPanel");
+  const timeline = $("#timelinePanel");
+  const backdrop = $("#drawerBackdrop");
+  editor.classList.toggle("open", name === "editor");
+  timeline.classList.toggle("open", name === "timeline");
+  backdrop.hidden = name !== "editor" && name !== "timeline";
+}
+
+function closeDrawers() {
+  $("#editorPanel").classList.remove("open");
+  $("#timelinePanel").classList.remove("open");
+  $("#drawerBackdrop").hidden = true;
+}
+
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   navigator.serviceWorker
@@ -1366,7 +1394,7 @@ function registerServiceWorker() {
       });
     })
     .catch(() => {
-      $("#syncStatus").textContent = "오프라인 캐시 등록 실패";
+      if ($("#syncStatus")) $("#syncStatus").textContent = "오프라인 캐시 등록 실패";
     });
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -1380,6 +1408,11 @@ document.querySelectorAll("[data-template]").forEach((button) => {
   button.addEventListener("click", () => applyTemplate(button.dataset.template));
 });
 
+$("#openEditorBtn").addEventListener("click", () => openDrawer("editor"));
+$("#openTimelineBtn").addEventListener("click", () => openDrawer("timeline"));
+$("#closeEditorBtn").addEventListener("click", closeDrawers);
+$("#closeTimelineBtn").addEventListener("click", closeDrawers);
+$("#drawerBackdrop").addEventListener("click", closeDrawers);
 $("#downloadBtn").addEventListener("click", downloadJson);
 $("#shareBtn").addEventListener("click", copyShareLink);
 $("#imageExportBtn").addEventListener("click", downloadClockSvg);

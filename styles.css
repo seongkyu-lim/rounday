@@ -43,7 +43,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 336px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -51,38 +51,55 @@ button {
   display: none;
 }
 
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(24, 32, 34, 0.22);
+  backdrop-filter: blur(2px);
+}
+
+.drawer-backdrop[hidden] {
+  display: none;
+}
+
 .sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: min(360px, calc(100vw - 28px));
   padding: 20px;
   border-right: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(18px);
-  max-height: 100vh;
+  max-height: none;
   overflow: auto;
+  transform: translateX(calc(-100% - 24px));
+  transition: transform 180ms ease;
+  box-shadow: 22px 0 60px rgba(28, 40, 44, 0.16);
 }
 
-.brand {
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.drawer-header {
   display: flex;
   align-items: center;
-  gap: 13px;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
   margin-bottom: 2px;
 }
 
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  border: 2px solid var(--ink);
-  border-radius: 50%;
-  background: var(--warm);
-  font-weight: 900;
+.drawer-header strong {
+  font-size: 1rem;
+  line-height: 1.1;
 }
 
-.brand h1,
-.brand p,
 .topbar h2,
 .topbar p,
 .section-title h2,
@@ -102,12 +119,6 @@ button {
   color: var(--danger);
 }
 
-.brand h1 {
-  font-size: 1.35rem;
-  line-height: 1.1;
-}
-
-.brand p,
 .eyebrow {
   color: var(--muted);
   font-size: 0.88rem;
@@ -118,10 +129,6 @@ button {
   border-radius: 8px;
   background: var(--paper);
   box-shadow: 0 8px 20px rgba(28, 40, 44, 0.04);
-}
-
-.brand {
-  order: 0;
 }
 
 .primary-panel {
@@ -406,15 +413,22 @@ select:focus {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 22px;
+  min-height: 100vh;
+  padding: 14px;
 }
 
 .topbar {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  left: 18px;
+  z-index: 20;
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 20px;
-  margin-bottom: 18px;
+  margin-bottom: 0;
+  pointer-events: none;
 }
 
 .topbar h2 {
@@ -442,6 +456,7 @@ select:focus {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+  pointer-events: auto;
 }
 
 .top-summary {
@@ -493,17 +508,15 @@ select:focus {
 }
 
 .planner-layout {
-  display: grid;
-  grid-template-columns: minmax(520px, 1fr) minmax(300px, 360px);
-  gap: 18px;
-  align-items: start;
+  display: block;
+  min-height: calc(100vh - 28px);
 }
 
 .clock-wrap {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: min(78vh, 880px);
+  min-height: calc(100vh - 28px);
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
@@ -514,7 +527,7 @@ select:focus {
 }
 
 #clockSvg {
-  width: min(92%, 820px);
+  width: min(94vw, 1040px);
   aspect-ratio: 1;
   overflow: visible;
   filter: drop-shadow(0 16px 32px rgba(28, 40, 44, 0.1));
@@ -526,7 +539,7 @@ select:focus {
   position: absolute;
   display: grid;
   place-items: center;
-  width: clamp(124px, 18vw, 190px);
+  width: clamp(138px, 18vw, 210px);
   aspect-ratio: 1;
   border: 1px solid var(--line);
   border-radius: 50%;
@@ -546,10 +559,19 @@ select:focus {
 }
 
 .timeline {
-  position: sticky;
-  top: 22px;
-  max-height: calc(100vh - 44px);
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 40;
+  width: min(390px, calc(100vw - 28px));
+  max-height: none;
   overflow: auto;
+  transform: translateX(calc(100% + 24px));
+  transition: transform 180ms ease;
+  box-shadow: -22px 0 60px rgba(28, 40, 44, 0.14);
+}
+
+.timeline.open {
+  transform: translateX(0);
 }
 
 .badge {
@@ -679,10 +701,19 @@ select:focus {
 
 .clock-label {
   fill: #5c696b;
-  font-size: 16px;
+  font-size: 11px;
   font-weight: 800;
   text-anchor: middle;
   dominant-baseline: middle;
+}
+
+.clock-label.major {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.clock-label.minor {
+  opacity: 0.82;
 }
 
 .tick {
@@ -694,9 +725,14 @@ select:focus {
   stroke-width: 3;
 }
 
+.tick.hour {
+  stroke-width: 2;
+  opacity: 0.72;
+}
+
 .tick.minor {
-  stroke-width: 1.5;
-  opacity: 0.44;
+  stroke-width: 1;
+  opacity: 0.28;
 }
 
 .event-arc {
@@ -751,89 +787,51 @@ select:focus {
 }
 
 @media (max-width: 1240px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .main {
-    order: 1;
-  }
-
-  .sidebar {
-    order: 2;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    max-height: none;
-    overflow: visible;
-  }
-
-  .planner-layout {
-    grid-template-columns: 1fr;
-  }
-
   .topbar {
     flex-wrap: wrap;
-  }
-
-  .top-summary {
-    order: 3;
-    width: 100%;
-  }
-
-  .timeline {
-    position: static;
-    max-height: none;
   }
 }
 
 @media (max-width: 620px) {
-  body {
-    padding-bottom: 74px;
-  }
-
-  .sidebar,
   .main {
-    padding: 16px;
+    padding: 10px;
   }
 
   .topbar {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .top-summary {
-    grid-template-columns: repeat(3, 1fr);
-    min-width: 0;
+    top: 12px;
+    right: 12px;
+    left: 12px;
   }
 
   .actions {
-    justify-content: flex-start;
+    gap: 6px;
   }
 
-  .planner-layout {
-    gap: 12px;
+  .icon-button {
+    width: 40px;
+    height: 40px;
   }
 
+  .planner-layout,
   .clock-wrap {
-    min-height: auto;
-    padding: 12px 0;
+    min-height: calc(100vh - 20px);
   }
 
   #clockSvg {
-    width: min(94%, 560px);
+    width: min(96vw, 560px);
   }
 
   .clock-center {
-    width: clamp(112px, 31vw, 150px);
+    width: clamp(112px, 30vw, 150px);
   }
 
   .event-label {
-    font-size: 18px;
-    stroke-width: 4px;
+    font-size: 14px;
+    stroke-width: 3px;
   }
 
   .event-label-time {
-    font-size: 12px;
+    font-size: 9px;
   }
 
   .event-card {
@@ -847,40 +845,6 @@ select:focus {
 
   .two-cols {
     grid-template-columns: 1fr;
-  }
-
-  .mobile-nav {
-    position: fixed;
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
-    z-index: 20;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 14px 38px rgba(28, 40, 44, 0.18);
-    backdrop-filter: blur(16px);
-    padding: 6px;
-  }
-
-  .mobile-nav button {
-    display: grid;
-    place-items: center;
-    gap: 3px;
-    min-height: 50px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--ink);
-    font-size: 0.72rem;
-    font-weight: 800;
-  }
-
-  .mobile-nav button:active {
-    background: #e7eeee;
   }
 }
 
