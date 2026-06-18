@@ -5,15 +5,24 @@ const DEFAULT_SCHEDULE_VERSION = 2;
 const GITHUB_TOKEN_KEY = "rounday-github-token";
 const GITHUB_PKCE_KEY = "rounday-github-pkce";
 const GITHUB_CONFIG_KEY = "rounday-github-config";
-const palette = ["#e35d4f", "#f3ad3e", "#246b5f", "#3078b8", "#7d5cc6", "#2f9f9b", "#d85d90"];
+const palette = ["#c9795d", "#d49554", "#4f8f83", "#5f7fa6", "#81769f", "#75848a", "#b87582"];
+const legacyColors = {
+  "#e35d4f": "#c9795d",
+  "#f3ad3e": "#d49554",
+  "#246b5f": "#4f8f83",
+  "#3078b8": "#5f7fa6",
+  "#7d5cc6": "#81769f",
+  "#2f9f9b": "#4f8f83",
+  "#d85d90": "#b87582",
+};
 
 const defaultEvents = [
-  { id: crypto.randomUUID(), title: "수면", start: "22:00", end: "06:00", type: "rest", color: "#7d5cc6" },
-  { id: crypto.randomUUID(), title: "육체단련", start: "07:00", end: "08:00", type: "health", color: "#2f9f9b" },
-  { id: crypto.randomUUID(), title: "아침식사", start: "08:30", end: "09:30", type: "life", color: "#f3ad3e" },
-  { id: crypto.randomUUID(), title: "점심식사", start: "12:30", end: "13:30", type: "life", color: "#e35d4f" },
-  { id: crypto.randomUUID(), title: "육체단련", start: "18:00", end: "20:00", type: "health", color: "#246b5f" },
-  { id: crypto.randomUUID(), title: "저녁식사", start: "20:00", end: "21:00", type: "life", color: "#2f9f9b" },
+  { id: crypto.randomUUID(), title: "수면", start: "22:00", end: "06:00", type: "rest", color: "#81769f" },
+  { id: crypto.randomUUID(), title: "육체단련", start: "07:00", end: "08:00", type: "health", color: "#4f8f83" },
+  { id: crypto.randomUUID(), title: "아침식사", start: "08:30", end: "09:30", type: "life", color: "#d49554" },
+  { id: crypto.randomUUID(), title: "점심식사", start: "12:30", end: "13:30", type: "life", color: "#c9795d" },
+  { id: crypto.randomUUID(), title: "육체단련", start: "18:00", end: "20:00", type: "health", color: "#4f8f83" },
+  { id: crypto.randomUUID(), title: "저녁식사", start: "20:00", end: "21:00", type: "life", color: "#c9795d" },
 ];
 
 const legacyDefaultSignature = [
@@ -25,20 +34,20 @@ const legacyDefaultSignature = [
 
 const templates = {
   student: [
-    ["수면", "00:00", "07:00", "rest", "#7d5cc6"],
-    ["등교 준비", "07:00", "08:00", "life", "#f3ad3e"],
-    ["수업", "09:00", "15:00", "learn", "#3078b8"],
-    ["과제", "16:00", "18:00", "focus", "#246b5f"],
-    ["운동", "19:00", "20:00", "health", "#2f9f9b"],
-    ["휴식", "21:00", "23:00", "rest", "#d85d90"],
+    ["수면", "00:00", "07:00", "rest", "#81769f"],
+    ["등교 준비", "07:00", "08:00", "life", "#d49554"],
+    ["수업", "09:00", "15:00", "learn", "#5f7fa6"],
+    ["과제", "16:00", "18:00", "focus", "#75848a"],
+    ["운동", "19:00", "20:00", "health", "#4f8f83"],
+    ["휴식", "21:00", "23:00", "rest", "#b87582"],
   ],
   maker: [
-    ["수면", "00:30", "07:30", "rest", "#7d5cc6"],
-    ["기획", "08:30", "10:00", "focus", "#246b5f"],
-    ["제작", "10:00", "13:00", "focus", "#e35d4f"],
-    ["회고", "14:00", "15:00", "learn", "#3078b8"],
-    ["실험", "15:00", "18:00", "focus", "#f3ad3e"],
-    ["산책", "19:00", "20:00", "health", "#2f9f9b"],
+    ["수면", "00:30", "07:30", "rest", "#81769f"],
+    ["기획", "08:30", "10:00", "focus", "#75848a"],
+    ["제작", "10:00", "13:00", "focus", "#5f7fa6"],
+    ["회고", "14:00", "15:00", "learn", "#5f7fa6"],
+    ["실험", "15:00", "18:00", "focus", "#d49554"],
+    ["산책", "19:00", "20:00", "health", "#4f8f83"],
   ],
 };
 
@@ -170,7 +179,7 @@ function normalizeEvent(event) {
     start: typeof event.start === "string" ? event.start : "09:00",
     end: typeof event.end === "string" ? event.end : "10:00",
     type: ["focus", "health", "life", "learn", "rest"].includes(event.type) ? event.type : "focus",
-    color: palette.includes(event.color) ? event.color : palette[0],
+    color: palette.includes(event.color) ? event.color : legacyColors[event.color] || palette[0],
     repeat: Boolean(event.repeat),
   };
 }
@@ -476,7 +485,7 @@ function truncateClockTitle(title, duration) {
 function clockEventLabelLines(event, duration) {
   const title = truncateClockTitle(event.title, duration);
   if (!title) return [];
-  return duration >= 75 ? [title, `${event.start}-${event.end}`] : [title];
+  return duration >= 105 ? [title, `${event.start}–${event.end}`] : [title];
 }
 
 function snapMinutes(minutes, step = 15) {
@@ -499,8 +508,9 @@ function svgEl(tag, attrs = {}) {
 
 function renderClock() {
   clockSvg.replaceChildren();
-  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 250, fill: "#ffffff", stroke: "#dde5e4", "stroke-width": 2 }));
-  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 196, fill: "none", stroke: "#e7eeee", "stroke-width": 1 }));
+  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 250, class: "clock-face" }));
+  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 218, class: "event-track" }));
+  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 188, class: "inner-guide" }));
 
   const hourLabels = [];
   for (let step = 0; step < 96; step += 1) {
@@ -508,7 +518,7 @@ function renderClock() {
     const isHour = step % 4 === 0;
     const isMajor = step % 12 === 0;
     const outer = polar(310, 310, 270, minutes);
-    const inner = polar(310, 310, isMajor ? 244 : isHour ? 250 : 258, minutes);
+    const inner = polar(310, 310, isMajor ? 246 : isHour ? 251 : 260, minutes);
     const tick = svgEl("line", {
       x1: inner.x,
       y1: inner.y,
@@ -520,7 +530,7 @@ function renderClock() {
 
     if (isHour) {
       const hour = minutes / 60;
-      const labelPoint = polar(310, 310, 286, minutes);
+      const labelPoint = polar(310, 310, 287, minutes);
       const label = svgEl("text", {
         x: labelPoint.x,
         y: labelPoint.y,
@@ -539,22 +549,34 @@ function renderClock() {
       d: arcPath(310, 310, 218, start, end),
       class: "event-arc",
       stroke: event.color,
-      "stroke-width": 44,
+      "stroke-width": 40,
       "data-id": event.id,
+      tabindex: "0",
+      role: "button",
+      "aria-label": `${event.title}, ${event.start}부터 ${event.end}까지`,
     });
+    const tooltip = svgEl("title");
+    tooltip.textContent = `${event.title} · ${event.start}–${event.end}`;
+    path.appendChild(tooltip);
     if (event.id === activeEventId) path.classList.add("active");
     path.addEventListener("pointerdown", (pointerEvent) => pointerEvent.stopPropagation());
     path.addEventListener("click", () => editEvent(event.id));
+    path.addEventListener("keydown", (keyEvent) => {
+      if (keyEvent.key === "Enter" || keyEvent.key === " ") editEvent(event.id);
+    });
     clockSvg.appendChild(path);
 
     const labelLines = clockEventLabelLines(event, duration);
     if (labelLines.length) {
       const mid = (start + duration / 2) % 1440;
-      const labelPoint = polar(310, 310, 207, mid);
+      const labelPoint = polar(310, 310, 218, mid);
+      const tangentAngle = (mid / 1440) * 360;
+      const readableAngle = tangentAngle > 90 && tangentAngle < 270 ? tangentAngle + 180 : tangentAngle;
       const label = svgEl("text", {
         x: labelPoint.x,
         y: labelPoint.y,
         class: "event-label",
+        transform: `rotate(${readableAngle} ${labelPoint.x} ${labelPoint.y})`,
       });
       labelLines.forEach((line, index) => {
         const tspan = svgEl("tspan", {
@@ -575,7 +597,7 @@ function renderClock() {
         d: arcPath(310, 310, 218, draftSelection.start, draftSelection.end),
         class: "draft-arc",
         stroke: selectedColor,
-        "stroke-width": 52,
+        "stroke-width": 44,
       }),
     );
   }
@@ -584,10 +606,10 @@ function renderClock() {
 
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const inner = polar(310, 310, 82, nowMinutes);
-  const outer = polar(310, 310, 278, nowMinutes);
+  const inner = polar(310, 310, 92, nowMinutes);
+  const outer = polar(310, 310, 274, nowMinutes);
   clockSvg.appendChild(svgEl("line", { x1: inner.x, y1: inner.y, x2: outer.x, y2: outer.y, class: "now-line" }));
-  clockSvg.appendChild(svgEl("circle", { cx: outer.x, cy: outer.y, r: 6, class: "now-dot" }));
+  clockSvg.appendChild(svgEl("circle", { cx: outer.x, cy: outer.y, r: 4.5, class: "now-dot" }));
 }
 
 function sortByStart(a, b) {
@@ -771,7 +793,7 @@ function renderPersistenceStatus() {
   const label = savedAt ? new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
   const scope = state.account ? "서버 개인 저장" : "로컬 저장";
   if ($("#syncStatus")) $("#syncStatus").textContent = `${selectedScheduleDate} · ${scope} · ${label}`;
-  $("#selectedDateLabel").textContent = selectedScheduleDate === todayString() ? "오늘" : selectedScheduleDate.slice(5);
+  $("#selectedDateLabel").textContent = selectedScheduleDate.slice(5);
 }
 
 function renderAccountControls() {
@@ -1321,7 +1343,17 @@ function downloadClockSvg() {
 
 function updateCurrentTime() {
   const now = new Date();
-  $("#currentTime").textContent = minutesToLabel(now.getHours() * 60 + now.getMinutes());
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  $("#currentTime").textContent = minutesToLabel(nowMinutes);
+  $("#selectedDateLabel").textContent = selectedScheduleDate.slice(5);
+
+  const sorted = [...events].sort(sortByStart);
+  const nextEvent = selectedScheduleDate === todayString()
+    ? sorted.find((event) => timeToMinutes(event.start) > nowMinutes)
+    : sorted[0];
+  $("#nextEventLabel").textContent = nextEvent
+    ? `다음 · ${nextEvent.title} ${nextEvent.start}`
+    : "다음 일정 없음";
 }
 
 const iconFallbacks = {
