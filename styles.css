@@ -1,17 +1,17 @@
 :root {
   color-scheme: light;
-  --bg: #f3f6f7;
+  --bg: #f4f5f7;
   --paper: #ffffff;
-  --surface: #f8faf9;
-  --ink: #182022;
-  --muted: #647174;
-  --line: #dde5e4;
-  --shadow: 0 22px 60px rgba(28, 40, 44, 0.12);
-  --accent: #1f7a68;
-  --accent-strong: #145548;
-  --accent-soft: #e6f2ef;
-  --warm: #f2b84b;
-  --danger: #b33b31;
+  --surface: #f8f9fa;
+  --ink: #20252b;
+  --muted: #737b84;
+  --line: #e3e6e8;
+  --shadow: 0 18px 50px rgba(35, 42, 48, 0.07);
+  --accent: #4f8f83;
+  --accent-strong: #397568;
+  --accent-soft: #e9f1ef;
+  --warm: #d49554;
+  --danger: #a94f46;
 }
 
 * {
@@ -21,10 +21,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(31, 122, 104, 0.12), transparent 34vw),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(243, 246, 247, 0.95)),
-    var(--bg);
+  background: var(--bg);
   color: var(--ink);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -414,7 +411,7 @@ select:focus {
   flex-direction: column;
   min-width: 0;
   min-height: 100vh;
-  padding: 14px;
+  padding: clamp(12px, 2vw, 28px);
 }
 
 .topbar {
@@ -509,28 +506,27 @@ select:focus {
 
 .planner-layout {
   display: block;
-  min-height: calc(100vh - 28px);
+  min-height: calc(100vh - clamp(24px, 4vw, 56px));
 }
 
 .clock-wrap {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: calc(100vh - 28px);
+  min-height: calc(100vh - clamp(24px, 4vw, 56px));
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 249, 0.96)),
-    var(--paper);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
 
 #clockSvg {
-  width: min(94vw, 1040px);
+  width: min(88vw, calc(100vh - 84px), 860px);
+  max-height: calc(100vh - 64px);
   aspect-ratio: 1;
   overflow: visible;
-  filter: drop-shadow(0 16px 32px rgba(28, 40, 44, 0.1));
+  filter: drop-shadow(0 14px 28px rgba(35, 42, 48, 0.06));
   touch-action: none;
   user-select: none;
 }
@@ -539,23 +535,47 @@ select:focus {
   position: absolute;
   display: grid;
   place-items: center;
-  width: clamp(138px, 18vw, 210px);
+  width: clamp(132px, 18vw, 190px);
   aspect-ratio: 1;
   border: 1px solid var(--line);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 32px rgba(28, 40, 44, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 26px rgba(35, 42, 48, 0.08);
 }
 
 .clock-center span {
-  color: var(--accent-strong);
-  font-size: clamp(1.2rem, 2.4vw, 2rem);
-  font-weight: 900;
+  color: var(--ink);
+  font-size: clamp(1.45rem, 2.7vw, 2.15rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1;
 }
 
 .clock-center strong {
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: clamp(0.72rem, 1.2vw, 0.82rem);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+}
+
+.center-divider {
+  width: 30px;
+  height: 1px;
+  margin: 7px 0 5px;
+  background: var(--line);
+}
+
+.clock-center p {
+  max-width: 90%;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: clamp(0.58rem, 1vw, 0.72rem);
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .timeline {
@@ -700,39 +720,59 @@ select:focus {
 }
 
 .clock-label {
-  fill: #5c696b;
-  font-size: 11px;
-  font-weight: 800;
+  fill: #7b838b;
+  font-size: 10px;
+  font-weight: 600;
   text-anchor: middle;
   dominant-baseline: middle;
 }
 
 .clock-label.major {
-  font-size: 15px;
-  font-weight: 900;
+  fill: #4d565f;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .clock-label.minor {
-  opacity: 0.82;
+  opacity: 0.9;
 }
 
 .tick {
-  stroke: #8e9692;
+  stroke: #929aa1;
   stroke-linecap: round;
 }
 
 .tick.major {
-  stroke-width: 3;
-}
-
-.tick.hour {
   stroke-width: 2;
   opacity: 0.72;
 }
 
+.tick.hour {
+  stroke-width: 1.5;
+  opacity: 0.52;
+}
+
 .tick.minor {
   stroke-width: 1;
-  opacity: 0.28;
+  opacity: 0.2;
+}
+
+.clock-face {
+  fill: #fff;
+  stroke: #e3e6e8;
+  stroke-width: 1.5;
+}
+
+.event-track {
+  fill: none;
+  stroke: #f0f2f3;
+  stroke-width: 44;
+}
+
+.inner-guide {
+  fill: none;
+  stroke: #eceff0;
+  stroke-width: 1;
 }
 
 .event-arc {
@@ -740,32 +780,37 @@ select:focus {
   stroke-linecap: butt;
   cursor: pointer;
   transition:
-    stroke-width 160ms ease,
-    opacity 160ms ease;
+    stroke-width 140ms ease,
+    filter 140ms ease,
+    opacity 140ms ease;
 }
 
 .event-arc:hover,
+.event-arc:focus-visible,
 .event-arc.active {
-  opacity: 0.9;
-  stroke-width: 54;
+  opacity: 1;
+  stroke-width: 44;
+  filter: brightness(0.96) drop-shadow(0 3px 5px rgba(35, 42, 48, 0.14));
+  outline: none;
 }
 
 .event-label {
   fill: #fff;
-  stroke: rgba(30, 34, 36, 0.5);
-  stroke-width: 3.5px;
+  stroke: rgba(36, 42, 46, 0.2);
+  stroke-width: 2px;
   paint-order: stroke;
-  font-size: 15px;
-  font-weight: 900;
-  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   text-anchor: middle;
   dominant-baseline: middle;
   pointer-events: none;
 }
 
 .event-label-time {
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 8.5px;
+  font-weight: 600;
+  opacity: 0.9;
 }
 
 .draft-arc {
@@ -777,13 +822,15 @@ select:focus {
 }
 
 .now-line {
-  stroke: #111719;
-  stroke-width: 3;
+  stroke: #30373d;
+  stroke-width: 1.5;
   stroke-linecap: round;
 }
 
 .now-dot {
-  fill: var(--ink);
+  fill: #30373d;
+  stroke: #fff;
+  stroke-width: 2;
 }
 
 @media (max-width: 1240px) {
@@ -818,16 +865,16 @@ select:focus {
   }
 
   #clockSvg {
-    width: min(96vw, 560px);
+    width: min(94vw, calc(100vh - 110px), 560px);
   }
 
   .clock-center {
-    width: clamp(112px, 30vw, 150px);
+    width: clamp(108px, 29vw, 142px);
   }
 
   .event-label {
-    font-size: 14px;
-    stroke-width: 3px;
+    font-size: 11px;
+    stroke-width: 1.8px;
   }
 
   .event-label-time {
