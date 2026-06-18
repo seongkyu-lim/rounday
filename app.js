@@ -1,35 +1,62 @@
 const STORAGE_KEY = "rounday-events-v2";
 const LEGACY_STORAGE_KEY = "rounday-events-v1";
 const SCHEMA_VERSION = 3;
+const DEFAULT_SCHEDULE_VERSION = 2;
 const GITHUB_TOKEN_KEY = "rounday-github-token";
 const GITHUB_PKCE_KEY = "rounday-github-pkce";
 const GITHUB_CONFIG_KEY = "rounday-github-config";
-const palette = ["#e35d4f", "#f3ad3e", "#246b5f", "#3078b8", "#7d5cc6", "#2f9f9b", "#d85d90"];
+const palette = ["#c9795d", "#d49554", "#4f8f83", "#5f7fa6", "#81769f", "#75848a", "#b87582"];
+const legacyColors = {
+  "#e35d4f": "#c9795d",
+  "#f3ad3e": "#d49554",
+  "#246b5f": "#4f8f83",
+  "#3078b8": "#5f7fa6",
+  "#7d5cc6": "#81769f",
+  "#2f9f9b": "#4f8f83",
+  "#d85d90": "#b87582",
+};
 
 const defaultEvents = [
-  { id: crypto.randomUUID(), title: "수면", start: "22:00", end: "06:00", type: "rest", color: "#7d5cc6" },
-  { id: crypto.randomUUID(), title: "아침식사", start: "08:30", end: "09:30", type: "life", color: "#f3ad3e" },
-  { id: crypto.randomUUID(), title: "점심식사", start: "12:00", end: "13:00", type: "life", color: "#e35d4f" },
-  { id: crypto.randomUUID(), title: "저녁식사", start: "18:00", end: "19:00", type: "life", color: "#2f9f9b" },
+  { id: crypto.randomUUID(), title: "수면", start: "22:00", end: "06:00", type: "rest", color: "#81769f" },
+  { id: crypto.randomUUID(), title: "육체단련", start: "07:00", end: "08:00", type: "health", color: "#4f8f83" },
+  { id: crypto.randomUUID(), title: "아침식사", start: "08:30", end: "09:30", type: "life", color: "#d49554" },
+  { id: crypto.randomUUID(), title: "점심식사", start: "12:30", end: "13:30", type: "life", color: "#c9795d" },
+  { id: crypto.randomUUID(), title: "육체단련", start: "18:00", end: "20:00", type: "health", color: "#4f8f83" },
+  { id: crypto.randomUUID(), title: "저녁식사", start: "20:00", end: "21:00", type: "life", color: "#c9795d" },
 ];
+
+const legacyDefaultSignature = [
+  "수면|22:00|06:00",
+  "아침식사|08:30|09:30",
+  "점심식사|12:00|13:00",
+  "저녁식사|18:00|19:00",
+].sort();
 
 const templates = {
   student: [
-    ["수면", "00:00", "07:00", "rest", "#7d5cc6"],
-    ["등교 준비", "07:00", "08:00", "life", "#f3ad3e"],
-    ["수업", "09:00", "15:00", "learn", "#3078b8"],
-    ["과제", "16:00", "18:00", "focus", "#246b5f"],
-    ["운동", "19:00", "20:00", "health", "#2f9f9b"],
-    ["휴식", "21:00", "23:00", "rest", "#d85d90"],
+    ["수면", "00:00", "07:00", "rest", "#81769f"],
+    ["등교 준비", "07:00", "08:00", "life", "#d49554"],
+    ["수업", "09:00", "15:00", "learn", "#5f7fa6"],
+    ["과제", "16:00", "18:00", "focus", "#75848a"],
+    ["운동", "19:00", "20:00", "health", "#4f8f83"],
+    ["휴식", "21:00", "23:00", "rest", "#b87582"],
   ],
   maker: [
-    ["수면", "00:30", "07:30", "rest", "#7d5cc6"],
-    ["기획", "08:30", "10:00", "focus", "#246b5f"],
-    ["제작", "10:00", "13:00", "focus", "#e35d4f"],
-    ["회고", "14:00", "15:00", "learn", "#3078b8"],
-    ["실험", "15:00", "18:00", "focus", "#f3ad3e"],
-    ["산책", "19:00", "20:00", "health", "#2f9f9b"],
+    ["수면", "00:30", "07:30", "rest", "#81769f"],
+    ["기획", "08:30", "10:00", "focus", "#75848a"],
+    ["제작", "10:00", "13:00", "focus", "#5f7fa6"],
+    ["회고", "14:00", "15:00", "learn", "#5f7fa6"],
+    ["실험", "15:00", "18:00", "focus", "#d49554"],
+    ["산책", "19:00", "20:00", "health", "#4f8f83"],
   ],
+};
+
+const typeLabels = {
+  focus: "집중",
+  health: "건강",
+  life: "생활",
+  learn: "학습",
+  rest: "휴식",
 };
 
 let state = null;
@@ -152,9 +179,44 @@ function normalizeEvent(event) {
     start: typeof event.start === "string" ? event.start : "09:00",
     end: typeof event.end === "string" ? event.end : "10:00",
     type: ["focus", "health", "life", "learn", "rest"].includes(event.type) ? event.type : "focus",
-    color: palette.includes(event.color) ? event.color : palette[0],
+    color: palette.includes(event.color) ? event.color : legacyColors[event.color] || palette[0],
     repeat: Boolean(event.repeat),
   };
+}
+
+function eventSignature(event) {
+  return `${event.title}|${event.start}|${event.end}`;
+}
+
+function isLegacyDefaultSchedule(source) {
+  if (!Array.isArray(source) || source.length !== legacyDefaultSignature.length) return false;
+  const signatures = source.map(eventSignature).sort();
+  return legacyDefaultSignature.every((signature, index) => signatures[index] === signature);
+}
+
+function migrateDefaultSchedules(nextState, source = {}) {
+  if (source.defaultScheduleVersion >= DEFAULT_SCHEDULE_VERSION) {
+    nextState.defaultScheduleVersion = source.defaultScheduleVersion;
+    return nextState;
+  }
+
+  nextState.profiles = nextState.profiles.map((profile) => ({
+    ...profile,
+    events: isLegacyDefaultSchedule(profile.events) ? cloneEvents(defaultEvents) : profile.events,
+  }));
+
+  nextState.dailyPlans = Object.fromEntries(
+    Object.entries(nextState.dailyPlans).map(([date, plan]) => [
+      date,
+      {
+        ...plan,
+        events: isLegacyDefaultSchedule(plan.events) ? cloneEvents(defaultEvents) : plan.events,
+      },
+    ]),
+  );
+
+  nextState.defaultScheduleVersion = DEFAULT_SCHEDULE_VERSION;
+  return nextState;
 }
 
 function normalizeState(candidate) {
@@ -182,8 +244,9 @@ function normalizeState(candidate) {
 
 function createState(profiles, activeProfileId, source = {}) {
   const dailyPlans = normalizeDailyPlans(source.dailyPlans);
-  return {
+  return migrateDefaultSchedules({
     schemaVersion: SCHEMA_VERSION,
+    defaultScheduleVersion: typeof source.defaultScheduleVersion === "number" ? source.defaultScheduleVersion : 0,
     userId: typeof source.userId === "string" ? source.userId : null,
     account: source.account
       ? {
@@ -207,7 +270,7 @@ function createState(profiles, activeProfileId, source = {}) {
       provider: source.sync?.provider || "local",
       lastSyncedAt: source.sync?.lastSyncedAt || null,
     },
-  };
+  }, source);
 }
 
 function normalizeDailyPlans(source) {
@@ -422,7 +485,7 @@ function truncateClockTitle(title, duration) {
 function clockEventLabelLines(event, duration) {
   const title = truncateClockTitle(event.title, duration);
   if (!title) return [];
-  return duration >= 75 ? [title, `${event.start}-${event.end}`] : [title];
+  return duration >= 105 ? [title, `${event.start}–${event.end}`] : [title];
 }
 
 function snapMinutes(minutes, step = 15) {
@@ -445,27 +508,36 @@ function svgEl(tag, attrs = {}) {
 
 function renderClock() {
   clockSvg.replaceChildren();
-  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 250, fill: "#fffefa", stroke: "#d9d6ca", "stroke-width": 2 }));
-  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 196, fill: "none", stroke: "#ece8dc", "stroke-width": 1 }));
+  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 250, class: "clock-face" }));
+  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 218, class: "event-track" }));
+  clockSvg.appendChild(svgEl("circle", { cx: 310, cy: 310, r: 188, class: "inner-guide" }));
 
-  for (let hour = 0; hour < 24; hour += 1) {
-    const minutes = hour * 60;
+  const hourLabels = [];
+  for (let step = 0; step < 96; step += 1) {
+    const minutes = step * 15;
+    const isHour = step % 4 === 0;
+    const isMajor = step % 12 === 0;
     const outer = polar(310, 310, 270, minutes);
-    const inner = polar(310, 310, hour % 3 === 0 ? 244 : 252, minutes);
+    const inner = polar(310, 310, isMajor ? 246 : isHour ? 251 : 260, minutes);
     const tick = svgEl("line", {
       x1: inner.x,
       y1: inner.y,
       x2: outer.x,
       y2: outer.y,
-      class: `tick ${hour % 3 === 0 ? "major" : "minor"}`,
+      class: `tick ${isMajor ? "major" : isHour ? "hour" : "minor"}`,
     });
     clockSvg.appendChild(tick);
 
-    if (hour % 3 === 0) {
-      const labelPoint = polar(310, 310, 226, minutes);
-      const label = svgEl("text", { x: labelPoint.x, y: labelPoint.y, class: "clock-label" });
-      label.textContent = `${hour}`;
-      clockSvg.appendChild(label);
+    if (isHour) {
+      const hour = minutes / 60;
+      const labelPoint = polar(310, 310, 287, minutes);
+      const label = svgEl("text", {
+        x: labelPoint.x,
+        y: labelPoint.y,
+        class: `clock-label ${isMajor ? "major" : "minor"}`,
+      });
+      label.textContent = hour.toString().padStart(2, "0");
+      hourLabels.push(label);
     }
   }
 
@@ -477,22 +549,34 @@ function renderClock() {
       d: arcPath(310, 310, 218, start, end),
       class: "event-arc",
       stroke: event.color,
-      "stroke-width": 44,
+      "stroke-width": 40,
       "data-id": event.id,
+      tabindex: "0",
+      role: "button",
+      "aria-label": `${event.title}, ${event.start}부터 ${event.end}까지`,
     });
+    const tooltip = svgEl("title");
+    tooltip.textContent = `${event.title} · ${event.start}–${event.end}`;
+    path.appendChild(tooltip);
     if (event.id === activeEventId) path.classList.add("active");
     path.addEventListener("pointerdown", (pointerEvent) => pointerEvent.stopPropagation());
     path.addEventListener("click", () => editEvent(event.id));
+    path.addEventListener("keydown", (keyEvent) => {
+      if (keyEvent.key === "Enter" || keyEvent.key === " ") editEvent(event.id);
+    });
     clockSvg.appendChild(path);
 
     const labelLines = clockEventLabelLines(event, duration);
     if (labelLines.length) {
       const mid = (start + duration / 2) % 1440;
-      const labelPoint = polar(310, 310, 207, mid);
+      const labelPoint = polar(310, 310, 218, mid);
+      const tangentAngle = (mid / 1440) * 360;
+      const readableAngle = tangentAngle > 90 && tangentAngle < 270 ? tangentAngle + 180 : tangentAngle;
       const label = svgEl("text", {
         x: labelPoint.x,
         y: labelPoint.y,
         class: "event-label",
+        transform: `rotate(${readableAngle} ${labelPoint.x} ${labelPoint.y})`,
       });
       labelLines.forEach((line, index) => {
         const tspan = svgEl("tspan", {
@@ -513,17 +597,19 @@ function renderClock() {
         d: arcPath(310, 310, 218, draftSelection.start, draftSelection.end),
         class: "draft-arc",
         stroke: selectedColor,
-        "stroke-width": 52,
+        "stroke-width": 44,
       }),
     );
   }
 
+  hourLabels.forEach((label) => clockSvg.appendChild(label));
+
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const inner = polar(310, 310, 82, nowMinutes);
-  const outer = polar(310, 310, 278, nowMinutes);
+  const inner = polar(310, 310, 92, nowMinutes);
+  const outer = polar(310, 310, 274, nowMinutes);
   clockSvg.appendChild(svgEl("line", { x1: inner.x, y1: inner.y, x2: outer.x, y2: outer.y, class: "now-line" }));
-  clockSvg.appendChild(svgEl("circle", { cx: outer.x, cy: outer.y, r: 6, class: "now-dot" }));
+  clockSvg.appendChild(svgEl("circle", { cx: outer.x, cy: outer.y, r: 4.5, class: "now-dot" }));
 }
 
 function sortByStart(a, b) {
@@ -582,11 +668,21 @@ function renderTimeline() {
     card.tabIndex = 0;
     card.dataset.card = event.id;
     card.style.setProperty("--event-color", event.color);
+    const meta = [
+      formatDuration(durationOf(event)),
+      typeLabels[event.type] || event.type,
+      event.repeat ? "반복" : "",
+      conflicts.has(event.id) ? "겹침" : "",
+    ].filter(Boolean);
     card.innerHTML = `
-      <div class="event-strip"></div>
+      <div class="event-time">
+        <span>${event.start}</span>
+        <span>${event.end}</span>
+      </div>
       <div>
         <h3>${escapeHtml(event.title)}${conflicts.has(event.id) ? " · 겹침" : ""}</h3>
-        <p>${event.start} - ${event.end} · ${formatDuration(durationOf(event))}${event.repeat ? " · 반복" : ""}</p>
+        <p>${event.start} - ${event.end}</p>
+        <div class="event-meta">${meta.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
       </div>
       <div class="card-actions">
         <button class="icon-button" type="button" aria-label="일정 편집" data-edit="${event.id}"><i data-lucide="pencil"></i></button>
@@ -624,11 +720,15 @@ function renderStats() {
   const planned = events.reduce((sum, event) => sum + durationOf(event), 0);
   const capped = Math.min(planned, 1440);
   const percent = Math.round((capped / 1440) * 100);
+  const free = Math.max(0, 1440 - planned);
   $("#completionText").textContent = `${percent}%`;
   $("#progressFill").style.width = `${percent}%`;
   $("#plannedHours").textContent = formatDuration(planned);
-  $("#freeHours").textContent = formatDuration(Math.max(0, 1440 - planned));
+  $("#freeHours").textContent = formatDuration(free);
   $("#blockCount").textContent = events.length;
+  if ($("#topPlannedHours")) $("#topPlannedHours").textContent = formatDuration(planned);
+  if ($("#topFreeHours")) $("#topFreeHours").textContent = formatDuration(free);
+  if ($("#topBlockCount")) $("#topBlockCount").textContent = events.length;
 }
 
 function getFreeSlots() {
@@ -686,14 +786,14 @@ function renderInsights() {
 
 function renderPersistenceStatus() {
   if (syncMessage) {
-    $("#syncStatus").textContent = syncMessage;
+    if ($("#syncStatus")) $("#syncStatus").textContent = syncMessage;
     return;
   }
   const savedAt = lastSave?.savedAt || state.updatedAt;
   const label = savedAt ? new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
   const scope = state.account ? "서버 개인 저장" : "로컬 저장";
-  $("#syncStatus").textContent = `${selectedScheduleDate} · ${scope} · ${label}`;
-  $("#selectedDateLabel").textContent = selectedScheduleDate === todayString() ? "오늘" : selectedScheduleDate.slice(5);
+  if ($("#syncStatus")) $("#syncStatus").textContent = `${selectedScheduleDate} · ${scope} · ${label}`;
+  $("#selectedDateLabel").textContent = selectedScheduleDate.slice(5);
 }
 
 function renderAccountControls() {
@@ -776,6 +876,8 @@ function applyClockSelection(start, end) {
   activeEventId = "";
   draftSelection = null;
   formError.textContent = "";
+  openDrawer("editor");
+  requestAnimationFrame(() => $("#eventForm").scrollIntoView({ behavior: "smooth", block: "start" }));
   renderClock();
   renderTimeline();
 }
@@ -830,6 +932,8 @@ function editEvent(id) {
   $("#submitText").textContent = "수정하기";
   $("#cancelEdit").classList.remove("hidden");
   formError.textContent = "";
+  openDrawer("editor");
+  requestAnimationFrame(() => $("#eventForm").scrollIntoView({ behavior: "smooth", block: "start" }));
   renderSwatches();
   renderClock();
   renderTimeline();
@@ -1222,7 +1326,7 @@ async function copyShareLink() {
     document.execCommand("copy");
     input.remove();
   }
-  $("#syncStatus").textContent = "공유 링크 복사됨";
+  if ($("#syncStatus")) $("#syncStatus").textContent = "공유 링크 복사됨";
 }
 
 function downloadClockSvg() {
@@ -1239,12 +1343,26 @@ function downloadClockSvg() {
 
 function updateCurrentTime() {
   const now = new Date();
-  $("#currentTime").textContent = minutesToLabel(now.getHours() * 60 + now.getMinutes());
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  $("#currentTime").textContent = minutesToLabel(nowMinutes);
+  $("#selectedDateLabel").textContent = selectedScheduleDate.slice(5);
+
+  const sorted = [...events].sort(sortByStart);
+  const nextEvent = selectedScheduleDate === todayString()
+    ? sorted.find((event) => timeToMinutes(event.start) > nowMinutes)
+    : sorted[0];
+  $("#nextEventLabel").textContent = nextEvent
+    ? `다음 · ${nextEvent.title} ${nextEvent.start}`
+    : "다음 일정 없음";
 }
 
 const iconFallbacks = {
+  "menu": "=",
+  "list-todo": "L",
   "copy-plus": "+",
   "trash-2": "x",
+  "git-branch": "G",
+  "unlink": "-",
   "log-in": ">",
   "log-out": "<",
   "x": "x",
@@ -1256,6 +1374,7 @@ const iconFallbacks = {
   "download": "v",
   "rotate-ccw": "R",
   "pencil": "/",
+  "smartphone": "M",
 };
 
 function refreshIcons() {
@@ -1276,6 +1395,21 @@ function renderInstallState() {
   $("#installAppBtn").classList.toggle("hidden", !deferredInstallPrompt);
 }
 
+function openDrawer(name) {
+  const editor = $("#editorPanel");
+  const timeline = $("#timelinePanel");
+  const backdrop = $("#drawerBackdrop");
+  editor.classList.toggle("open", name === "editor");
+  timeline.classList.toggle("open", name === "timeline");
+  backdrop.hidden = name !== "editor" && name !== "timeline";
+}
+
+function closeDrawers() {
+  $("#editorPanel").classList.remove("open");
+  $("#timelinePanel").classList.remove("open");
+  $("#drawerBackdrop").hidden = true;
+}
+
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   navigator.serviceWorker
@@ -1292,7 +1426,7 @@ function registerServiceWorker() {
       });
     })
     .catch(() => {
-      $("#syncStatus").textContent = "오프라인 캐시 등록 실패";
+      if ($("#syncStatus")) $("#syncStatus").textContent = "오프라인 캐시 등록 실패";
     });
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -1306,6 +1440,11 @@ document.querySelectorAll("[data-template]").forEach((button) => {
   button.addEventListener("click", () => applyTemplate(button.dataset.template));
 });
 
+$("#openEditorBtn").addEventListener("click", () => openDrawer("editor"));
+$("#openTimelineBtn").addEventListener("click", () => openDrawer("timeline"));
+$("#closeEditorBtn").addEventListener("click", closeDrawers);
+$("#closeTimelineBtn").addEventListener("click", closeDrawers);
+$("#drawerBackdrop").addEventListener("click", closeDrawers);
 $("#downloadBtn").addEventListener("click", downloadJson);
 $("#shareBtn").addEventListener("click", copyShareLink);
 $("#imageExportBtn").addEventListener("click", downloadClockSvg);
