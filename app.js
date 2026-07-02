@@ -321,12 +321,21 @@ function syncActiveEvents() {
   events = activeProfile().events;
 }
 
+function repeatEventsForDate(date) {
+  const dates = Object.keys(state.dailyPlans || {}).filter((existing) => existing !== date).sort();
+  if (!dates.length) return [];
+  const pastDates = dates.filter((existing) => existing < date);
+  const referenceDate = pastDates.length ? pastDates[pastDates.length - 1] : dates[dates.length - 1];
+  return state.dailyPlans[referenceDate].events.filter((event) => event.repeat);
+}
+
 function ensureDailyPlan(date) {
   if (!state.dailyPlans) state.dailyPlans = {};
   if (!state.dailyPlans[date]) {
     const migratingExistingPlan = Object.keys(state.dailyPlans).length === 0 && activeProfile().events.length > 0;
+    const repeatedEvents = migratingExistingPlan ? [] : repeatEventsForDate(date);
     state.dailyPlans[date] = {
-      events: cloneEvents(migratingExistingPlan ? activeProfile().events : defaultEvents),
+      events: cloneEvents(migratingExistingPlan ? activeProfile().events : repeatedEvents.length ? repeatedEvents : defaultEvents),
       updatedAt: new Date().toISOString(),
     };
   }
