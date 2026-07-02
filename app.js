@@ -88,10 +88,36 @@ const storageAdapter = {
     return localStorage.getItem(LEGACY_STORAGE_KEY);
   },
   save(nextState) {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      try {
+        const stored = JSON.parse(raw);
+        nextState.dailyPlans = mergeDailyPlanMaps(stored?.dailyPlans, nextState.dailyPlans);
+      } catch {
+        // 손상된 스토리지는 병합 없이 현재 상태로 덮어쓴다.
+      }
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
     return { provider: "local", savedAt: nextState.updatedAt };
   },
 };
+
+function mergeDailyPlanMaps(stored, current) {
+  const dates = new Set([...Object.keys(stored || {}), ...Object.keys(current || {})]);
+  const merged = {};
+  dates.forEach((date) => {
+    const storedPlan = stored?.[date];
+    const currentPlan = current?.[date];
+    if (!storedPlan || !currentPlan) {
+      merged[date] = currentPlan || storedPlan;
+      return;
+    }
+    const storedTime = Date.parse(storedPlan.updatedAt || "") || 0;
+    const currentTime = Date.parse(currentPlan.updatedAt || "") || 0;
+    merged[date] = storedTime > currentTime ? storedPlan : currentPlan;
+  });
+  return merged;
+}
 let lastSave = null;
 let serverSyncTimer = null;
 let syncMessage = "";
@@ -892,8 +918,7 @@ function renderHistoryDates() {
   });
 }
 
-function renderAll() {
-  saveState();
+function renderViews() {
   renderProfileControls();
   renderCustomTemplates();
   renderHistoryDates();
@@ -906,6 +931,11 @@ function renderAll() {
   renderStats();
   updateCurrentTime();
   refreshIcons();
+}
+
+function renderAll() {
+  saveState();
+  renderViews();
 }
 
 function applyClockSelection(start, end) {
@@ -1662,6 +1692,19 @@ document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
     event.preventDefault();
     form.requestSubmit();
+  }
+});
+
+window.addEventListener("storage", (storageEvent) => {
+  if (storageEvent.key !== STORAGE_KEY || !storageEvent.newValue) return;
+  try {
+    const incoming = normalizeState(JSON.parse(storageEvent.newValue));
+    state.dailyPlans = mergeDailyPlanMaps(incoming.dailyPlans, state.dailyPlans);
+    ensureDailyPlan(selectedScheduleDate);
+    syncActiveEvents();
+    renderViews();
+  } catch {
+    // 다른 탭이 손상된 값을 쓴 경우 이 탭의 상태를 유지한다.
   }
 });
 
