@@ -1255,12 +1255,61 @@ async function loadScheduleFromGithub() {
   $("#githubState").textContent = "불러옴";
 }
 
+function nearestPreviousPlanDate(date) {
+  const dates = Object.keys(state.dailyPlans || {})
+    .filter((existing) => existing < date && state.dailyPlans[existing].events.length > 0)
+    .sort();
+  return dates[dates.length - 1] || "";
+}
+
+let copyConfirmTimer = null;
+
+function resetCopyControls() {
+  clearTimeout(copyConfirmTimer);
+  const button = $("#copyPreviousDayBtn");
+  button.dataset.confirming = "false";
+  button.classList.remove("confirming");
+  button.textContent = "이전 기록 복사";
+}
+
+function copyPreviousDayPlan() {
+  const button = $("#copyPreviousDayBtn");
+  const note = $("#copyFeedback");
+  const source = nearestPreviousPlanDate(selectedScheduleDate);
+  if (!source) {
+    resetCopyControls();
+    note.textContent = "복사할 이전 기록이 없습니다.";
+    return;
+  }
+
+  if (events.length > 0 && button.dataset.confirming !== "true") {
+    button.dataset.confirming = "true";
+    button.classList.add("confirming");
+    button.textContent = "한 번 더 누르면 덮어씁니다";
+    note.textContent = `${source} 기록으로 현재 일정을 대체합니다.`;
+    clearTimeout(copyConfirmTimer);
+    copyConfirmTimer = setTimeout(() => {
+      resetCopyControls();
+      note.textContent = "";
+    }, 4000);
+    return;
+  }
+
+  resetCopyControls();
+  setEvents(cloneEvents(state.dailyPlans[source].events));
+  resetForm();
+  renderAll();
+  note.textContent = `${source} 일정 ${events.length}개를 복사했습니다.`;
+}
+
 function changeScheduleDate(date) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
   syncCurrentDailyPlan();
   selectedScheduleDate = date;
   ensureDailyPlan(date);
   syncActiveEvents();
+  resetCopyControls();
+  $("#copyFeedback").textContent = "";
   resetForm();
   renderAll();
 }
@@ -1524,6 +1573,7 @@ $("#createRepoBtn").addEventListener("click", () => createGithubDataRepo().catch
 $("#saveGithubBtn").addEventListener("click", () => saveScheduleToGithub().catch((error) => (formError.textContent = error.message)));
 $("#loadGithubBtn").addEventListener("click", () => loadScheduleFromGithub().catch((error) => (formError.textContent = error.message)));
 $("#scheduleDateInput").addEventListener("change", (event) => changeScheduleDate(event.target.value));
+$("#copyPreviousDayBtn").addEventListener("click", copyPreviousDayPlan);
 $("#signInBtn")?.addEventListener("click", signIn);
 $("#signOutBtn")?.addEventListener("click", signOut);
 $("#installAppBtn").addEventListener("click", async () => {
