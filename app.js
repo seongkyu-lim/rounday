@@ -918,8 +918,7 @@ function renderHistoryDates() {
   });
 }
 
-function renderAll() {
-  saveState();
+function renderViews() {
   renderProfileControls();
   renderCustomTemplates();
   renderHistoryDates();
@@ -932,6 +931,11 @@ function renderAll() {
   renderStats();
   updateCurrentTime();
   refreshIcons();
+}
+
+function renderAll() {
+  saveState();
+  renderViews();
 }
 
 function applyClockSelection(start, end) {
@@ -1688,6 +1692,19 @@ document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
     event.preventDefault();
     form.requestSubmit();
+  }
+});
+
+window.addEventListener("storage", (storageEvent) => {
+  if (storageEvent.key !== STORAGE_KEY || !storageEvent.newValue) return;
+  try {
+    const incoming = normalizeState(JSON.parse(storageEvent.newValue));
+    state.dailyPlans = mergeDailyPlanMaps(incoming.dailyPlans, state.dailyPlans);
+    ensureDailyPlan(selectedScheduleDate);
+    syncActiveEvents();
+    renderViews();
+  } catch {
+    // 다른 탭이 손상된 값을 쓴 경우 이 탭의 상태를 유지한다.
   }
 });
 
