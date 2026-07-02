@@ -88,10 +88,36 @@ const storageAdapter = {
     return localStorage.getItem(LEGACY_STORAGE_KEY);
   },
   save(nextState) {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      try {
+        const stored = JSON.parse(raw);
+        nextState.dailyPlans = mergeDailyPlanMaps(stored?.dailyPlans, nextState.dailyPlans);
+      } catch {
+        // 손상된 스토리지는 병합 없이 현재 상태로 덮어쓴다.
+      }
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
     return { provider: "local", savedAt: nextState.updatedAt };
   },
 };
+
+function mergeDailyPlanMaps(stored, current) {
+  const dates = new Set([...Object.keys(stored || {}), ...Object.keys(current || {})]);
+  const merged = {};
+  dates.forEach((date) => {
+    const storedPlan = stored?.[date];
+    const currentPlan = current?.[date];
+    if (!storedPlan || !currentPlan) {
+      merged[date] = currentPlan || storedPlan;
+      return;
+    }
+    const storedTime = Date.parse(storedPlan.updatedAt || "") || 0;
+    const currentTime = Date.parse(currentPlan.updatedAt || "") || 0;
+    merged[date] = storedTime > currentTime ? storedPlan : currentPlan;
+  });
+  return merged;
+}
 let lastSave = null;
 let serverSyncTimer = null;
 let syncMessage = "";
