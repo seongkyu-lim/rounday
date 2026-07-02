@@ -5,24 +5,32 @@ const DEFAULT_SCHEDULE_VERSION = 2;
 const GITHUB_TOKEN_KEY = "rounday-github-token";
 const GITHUB_PKCE_KEY = "rounday-github-pkce";
 const GITHUB_CONFIG_KEY = "rounday-github-config";
-const palette = ["#c9795d", "#d49554", "#4f8f83", "#5f7fa6", "#81769f", "#75848a", "#b87582"];
+const THEME_KEY = "rounday-theme";
+const palette = ["#ef6461", "#f2a33c", "#2fbf8f", "#4d8df6", "#8b7cf6", "#26b3ad", "#ef6a9e"];
 const legacyColors = {
-  "#e35d4f": "#c9795d",
-  "#f3ad3e": "#d49554",
-  "#246b5f": "#4f8f83",
-  "#3078b8": "#5f7fa6",
-  "#7d5cc6": "#81769f",
-  "#2f9f9b": "#4f8f83",
-  "#d85d90": "#b87582",
+  "#e35d4f": "#ef6461",
+  "#f3ad3e": "#f2a33c",
+  "#246b5f": "#2fbf8f",
+  "#3078b8": "#4d8df6",
+  "#7d5cc6": "#8b7cf6",
+  "#2f9f9b": "#26b3ad",
+  "#d85d90": "#ef6a9e",
+  "#c9795d": "#ef6461",
+  "#d49554": "#f2a33c",
+  "#4f8f83": "#26b3ad",
+  "#5f7fa6": "#4d8df6",
+  "#81769f": "#8b7cf6",
+  "#75848a": "#4d8df6",
+  "#b87582": "#ef6a9e",
 };
 
 const defaultEvents = [
-  { id: crypto.randomUUID(), title: "수면", start: "22:00", end: "06:00", type: "rest", color: "#81769f" },
-  { id: crypto.randomUUID(), title: "육체단련", start: "07:00", end: "08:00", type: "health", color: "#4f8f83" },
-  { id: crypto.randomUUID(), title: "아침식사", start: "08:30", end: "09:30", type: "life", color: "#d49554" },
-  { id: crypto.randomUUID(), title: "점심식사", start: "12:30", end: "13:30", type: "life", color: "#c9795d" },
-  { id: crypto.randomUUID(), title: "육체단련", start: "18:00", end: "20:00", type: "health", color: "#4f8f83" },
-  { id: crypto.randomUUID(), title: "저녁식사", start: "20:00", end: "21:00", type: "life", color: "#c9795d" },
+  { id: crypto.randomUUID(), title: "수면", start: "22:00", end: "06:00", type: "rest", color: "#8b7cf6" },
+  { id: crypto.randomUUID(), title: "육체단련", start: "07:00", end: "08:00", type: "health", color: "#26b3ad" },
+  { id: crypto.randomUUID(), title: "아침식사", start: "08:30", end: "09:30", type: "life", color: "#f2a33c" },
+  { id: crypto.randomUUID(), title: "점심식사", start: "12:30", end: "13:30", type: "life", color: "#ef6461" },
+  { id: crypto.randomUUID(), title: "육체단련", start: "18:00", end: "20:00", type: "health", color: "#26b3ad" },
+  { id: crypto.randomUUID(), title: "저녁식사", start: "20:00", end: "21:00", type: "life", color: "#ef6461" },
 ];
 
 const legacyDefaultSignature = [
@@ -34,20 +42,20 @@ const legacyDefaultSignature = [
 
 const templates = {
   student: [
-    ["수면", "00:00", "07:00", "rest", "#81769f"],
-    ["등교 준비", "07:00", "08:00", "life", "#d49554"],
-    ["수업", "09:00", "15:00", "learn", "#5f7fa6"],
-    ["과제", "16:00", "18:00", "focus", "#75848a"],
-    ["운동", "19:00", "20:00", "health", "#4f8f83"],
-    ["휴식", "21:00", "23:00", "rest", "#b87582"],
+    ["수면", "00:00", "07:00", "rest", "#8b7cf6"],
+    ["등교 준비", "07:00", "08:00", "life", "#f2a33c"],
+    ["수업", "09:00", "15:00", "learn", "#4d8df6"],
+    ["과제", "16:00", "18:00", "focus", "#2fbf8f"],
+    ["운동", "19:00", "20:00", "health", "#26b3ad"],
+    ["휴식", "21:00", "23:00", "rest", "#ef6a9e"],
   ],
   maker: [
-    ["수면", "00:30", "07:30", "rest", "#81769f"],
-    ["기획", "08:30", "10:00", "focus", "#75848a"],
-    ["제작", "10:00", "13:00", "focus", "#5f7fa6"],
-    ["회고", "14:00", "15:00", "learn", "#5f7fa6"],
-    ["실험", "15:00", "18:00", "focus", "#d49554"],
-    ["산책", "19:00", "20:00", "health", "#4f8f83"],
+    ["수면", "00:30", "07:30", "rest", "#8b7cf6"],
+    ["기획", "08:30", "10:00", "focus", "#2fbf8f"],
+    ["제작", "10:00", "13:00", "focus", "#4d8df6"],
+    ["회고", "14:00", "15:00", "learn", "#4d8df6"],
+    ["실험", "15:00", "18:00", "focus", "#f2a33c"],
+    ["산책", "19:00", "20:00", "health", "#26b3ad"],
   ],
 };
 
@@ -1332,6 +1340,27 @@ async function copyShareLink() {
 function downloadClockSvg() {
   const clone = clockSvg.cloneNode(true);
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  const rootStyle = getComputedStyle(document.documentElement);
+  const cssVar = (name) => rootStyle.getPropertyValue(name).trim();
+  const style = svgEl("style");
+  style.textContent = [
+    `.clock-face { fill: ${cssVar("--clock-face")}; stroke: ${cssVar("--line")}; stroke-width: 1.5; }`,
+    `.event-track { fill: none; stroke: ${cssVar("--clock-track")}; stroke-width: 44; }`,
+    `.inner-guide { fill: none; stroke: ${cssVar("--clock-guide")}; stroke-width: 1; }`,
+    `.tick { stroke: ${cssVar("--tick")}; stroke-linecap: round; }`,
+    ".tick.major { stroke-width: 2; opacity: 0.72; }",
+    ".tick.hour { stroke-width: 1.5; opacity: 0.52; }",
+    ".tick.minor { stroke-width: 1; opacity: 0.2; }",
+    `.clock-label { fill: ${cssVar("--clock-label-minor")}; font: 600 10px sans-serif; text-anchor: middle; dominant-baseline: middle; }`,
+    `.clock-label.major { fill: ${cssVar("--clock-label-major")}; font-size: 13px; font-weight: 700; }`,
+    ".event-arc { fill: none; stroke-linecap: butt; }",
+    ".event-label { fill: #fff; stroke: rgba(24, 24, 27, 0.28); stroke-width: 2px; paint-order: stroke; font: 700 12px sans-serif; text-anchor: middle; dominant-baseline: middle; }",
+    ".event-label-time { font-size: 8.5px; font-weight: 600; opacity: 0.9; }",
+    ".draft-arc { fill: none; opacity: 0.4; stroke-dasharray: 10 9; stroke-linecap: round; }",
+    `.now-line { stroke: ${cssVar("--now")}; stroke-width: 1.5; stroke-linecap: round; }`,
+    `.now-dot { fill: ${cssVar("--now")}; stroke: ${cssVar("--clock-face")}; stroke-width: 2; }`,
+  ].join("\n");
+  clone.insertBefore(style, clone.firstChild);
   const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -1339,6 +1368,16 @@ function downloadClockSvg() {
   anchor.download = `rounday-${activeProfile().name.replace(/\\s+/g, "-")}.svg`;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try {
+    localStorage.setItem(THEME_KEY, next);
+  } catch {
+    // Theme still applies for this visit even when storage is unavailable.
+  }
 }
 
 function updateCurrentTime() {
@@ -1375,6 +1414,8 @@ const iconFallbacks = {
   "rotate-ccw": "R",
   "pencil": "/",
   "smartphone": "M",
+  "moon": "D",
+  "sun": "L",
 };
 
 function refreshIcons() {
@@ -1445,6 +1486,7 @@ $("#openTimelineBtn").addEventListener("click", () => openDrawer("timeline"));
 $("#closeEditorBtn").addEventListener("click", closeDrawers);
 $("#closeTimelineBtn").addEventListener("click", closeDrawers);
 $("#drawerBackdrop").addEventListener("click", closeDrawers);
+$("#themeToggleBtn").addEventListener("click", toggleTheme);
 $("#downloadBtn").addEventListener("click", downloadJson);
 $("#shareBtn").addEventListener("click", copyShareLink);
 $("#imageExportBtn").addEventListener("click", downloadClockSvg);
