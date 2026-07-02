@@ -866,10 +866,37 @@ function renderCustomTemplates() {
   });
 }
 
+function recordedPlanDates(dailyPlans) {
+  return Object.keys(dailyPlans || {})
+    .filter((date) => dailyPlans[date].events.length > 0)
+    .sort()
+    .reverse();
+}
+
+function renderHistoryDates() {
+  const list = $("#historyDates");
+  list.replaceChildren();
+  const dates = recordedPlanDates(state.dailyPlans);
+  $("#historyCount").textContent = dates.length ? `${dates.length}일` : "없음";
+  dates.slice(0, 12).forEach((date) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `history-chip ${date === selectedScheduleDate ? "active" : ""}`;
+    chip.textContent = `${date.slice(5)} · ${state.dailyPlans[date].events.length}`;
+    chip.title = `${date} 시간표 열기`;
+    chip.addEventListener("click", () => {
+      $("#scheduleDateInput").value = date;
+      changeScheduleDate(date);
+    });
+    list.appendChild(chip);
+  });
+}
+
 function renderAll() {
   saveState();
   renderProfileControls();
   renderCustomTemplates();
+  renderHistoryDates();
   renderAccountControls();
   renderGithubControls();
   renderPersistenceStatus();
