@@ -4,8 +4,8 @@
   "description": "Circular 24-hour daily planner",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f6f5ef",
-  "theme_color": "#246b5f",
+  "background_color": "#f5f5f7",
+  "theme_color": "#6366f1",
   "icons": [
     {
       "src": "./icons/icon.svg",

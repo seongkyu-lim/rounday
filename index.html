@@ -4,11 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Rounday is a circular daily planner for building and sharing 24-hour routines." />
-    <meta name="theme-color" content="#246b5f" />
+    <meta name="theme-color" content="#6366f1" />
     <title>Rounday - 원형 하루 시간표</title>
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="./manifest.webmanifest" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
     <link rel="stylesheet" href="./styles.css" />
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem("rounday-theme");
+          if (theme !== "light" && theme !== "dark") {
+            theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          document.documentElement.dataset.theme = theme;
+        } catch (error) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
   </head>
   <body>
     <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
@@ -212,6 +229,10 @@
             </button>
             <button class="icon-button" type="button" id="openTimelineBtn" aria-label="일정 목록 열기">
               <i data-lucide="list-todo"></i>
+            </button>
+            <button class="icon-button" type="button" id="themeToggleBtn" aria-label="테마 전환">
+              <i data-lucide="moon" class="theme-icon-dark"></i>
+              <i data-lucide="sun" class="theme-icon-light"></i>
             </button>
             <button class="icon-button hidden" type="button" id="installAppBtn" aria-label="앱 설치">
               <i data-lucide="smartphone"></i>
