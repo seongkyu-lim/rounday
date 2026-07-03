@@ -121,7 +121,11 @@ function mergeDailyPlanMaps(stored, current) {
 let lastSave = null;
 let serverSyncTimer = null;
 let syncMessage = "";
-const canUseServer = location.protocol !== "file:";
+// Supabase publishable key는 공개용으로 설계된 값이며 RLS 정책으로 데이터가 보호된다.
+const SUPABASE_URL = window.RoundayConfig?.supabaseUrl || "https://gituezwfvthzmsocluoj.supabase.co";
+const SUPABASE_KEY = window.RoundayConfig?.supabaseKey || "sb_publishable_70g959Itw-fNg4gM_Iybmg_MQnw6VY9";
+const supabaseClient =
+  typeof window.supabase?.createClient === "function" ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 function getGithubConfig() {
   try {
@@ -388,73 +392,85 @@ function saveState() {
   syncCurrentDailyPlan();
   state.updatedAt = new Date().toISOString();
   lastSave = storageAdapter.save(state);
-  scheduleServerSave();
+  scheduleCloudSave();
 }
 
-async function apiJson(path, options = {}) {
-  const response = await fetch(path, {
-    headers: { "content-type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error || "요청을 처리하지 못했습니다.");
-  return payload;
-}
-
-function scheduleServerSave() {
-  if (!canUseServer || !state.account?.email) return;
+function scheduleCloudSave() {
+  if (!supabaseClient || !state.userId || !state.account?.email) return;
   clearTimeout(serverSyncTimer);
-  serverSyncTimer = setTimeout(saveStateToServer, 450);
+  serverSyncTimer = setTimeout(pushCloudState, 800);
 }
 
-async function saveStateToServer() {
+async function pushCloudState() {
+  if (!supabaseClient || !state.userId) return;
   try {
-    syncMessage = "서버 저장 중...";
+    syncMessage = "클라우드 저장 중...";
     renderPersistenceStatus();
-    const payload = await apiJson("/api/state", {
-      method: "PUT",
-      body: JSON.stringify({ state }),
-    });
-    if (payload.state) {
-      state = normalizeState(payload.state);
-      syncActiveEvents();
-      storageAdapter.save(state);
-    }
-    lastSave = { provider: "server", savedAt: payload.savedAt || new Date().toISOString() };
+    const { error } = await supabaseClient
+      .from("rounday_states")
+      .upsert({ user_id: state.userId, state, updated_at: new Date().toISOString() });
+    if (error) throw new Error(error.message);
+    state.sync = { provider: "supabase", lastSyncedAt: new Date().toISOString() };
+    lastSave = { provider: "supabase", savedAt: state.sync.lastSyncedAt };
     syncMessage = "";
     renderPersistenceStatus();
   } catch (error) {
-    syncMessage = `서버 저장 실패 · ${error.message}`;
+    syncMessage = `클라우드 저장 실패 · ${error.message}`;
     renderPersistenceStatus();
   }
 }
 
-function applySignedInState(payload) {
-  if (payload.state) {
-    state = normalizeState(payload.state);
-  } else if (payload.user) {
-    state.account = { email: payload.user.email, signedInAt: payload.user.signedInAt };
-    state.userId = payload.user.id;
-    state.sync = { provider: "server", lastSyncedAt: null };
+async function pullCloudState() {
+  if (!supabaseClient || !state.userId) return;
+  const { data, error } = await supabaseClient
+    .from("rounday_states")
+    .select("state, updated_at")
+    .eq("user_id", state.userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (data?.state) {
+    const remote = normalizeState(data.state);
+    const localNewer = (Date.parse(state.updatedAt || "") || 0) >= (Date.parse(remote.updatedAt || "") || 0);
+    if (localNewer) {
+      state.dailyPlans = mergeDailyPlanMaps(remote.dailyPlans, state.dailyPlans);
+    } else {
+      remote.dailyPlans = mergeDailyPlanMaps(state.dailyPlans, remote.dailyPlans);
+      remote.account = state.account;
+      remote.userId = state.userId;
+      state = remote;
+      selectedScheduleDate = state.activeDate || todayString();
+      $("#scheduleDateInput").value = selectedScheduleDate;
+    }
+    ensureDailyPlan(selectedScheduleDate);
+    syncActiveEvents();
   }
-  syncActiveEvents();
-  storageAdapter.save(state);
-  lastSave = { provider: "server", savedAt: state.sync?.lastSyncedAt || state.updatedAt };
+  state.sync = { provider: "supabase", lastSyncedAt: new Date().toISOString() };
 }
 
-async function restoreServerSession() {
-  if (!canUseServer) return;
+async function handleSignedIn(session) {
+  const user = session.user;
+  state.account = { email: user.email || "", signedInAt: new Date().toISOString() };
+  state.userId = user.id;
   try {
-    const payload = await apiJson("/api/session");
-    if (!payload.user) {
+    await pullCloudState();
+  } catch (error) {
+    syncMessage = `클라우드 불러오기 실패 · ${error.message}`;
+  }
+  resetForm();
+  renderAll();
+}
+
+async function restoreCloudSession() {
+  if (!supabaseClient) return;
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    if (!data?.session) {
       renderPersistenceStatus();
       return;
     }
-    applySignedInState(payload);
-    resetForm();
-    renderAll();
+    await handleSignedIn(data.session);
   } catch {
-    syncMessage = "서버 연결 없음 · 로컬 저장";
+    syncMessage = "클라우드 연결 없음 · 로컬 저장";
     renderPersistenceStatus();
   }
 }
@@ -834,7 +850,7 @@ function renderPersistenceStatus() {
   }
   const savedAt = lastSave?.savedAt || state.updatedAt;
   const label = savedAt ? new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
-  const scope = state.account ? "서버 개인 저장" : "로컬 저장";
+  const scope = state.account ? "클라우드 저장" : "로컬 저장";
   if ($("#syncStatus")) $("#syncStatus").textContent = `${selectedScheduleDate} · ${scope} · ${label}`;
   $("#selectedDateLabel").textContent = selectedScheduleDate.slice(5);
 }
@@ -842,7 +858,7 @@ function renderPersistenceStatus() {
 function renderAccountControls() {
   if (!$("#accountState")) return;
   const signedIn = Boolean(state.account?.email);
-  $("#accountState").textContent = signedIn ? "로그인됨" : "오프라인";
+  $("#accountState").textContent = signedIn ? "로그인됨" : "미로그인";
   $("#accountEmailInput").value = state.account?.email || "";
   $("#accountPasswordInput").value = "";
   $("#signOutBtn").disabled = !signedIn;
@@ -1376,53 +1392,69 @@ function logoutGithub() {
   renderGithubControls();
 }
 
+function setAccountFeedback(message, isError = false) {
+  const note = $("#accountFeedback");
+  if (!note) return;
+  note.textContent = message;
+  note.classList.toggle("danger-text", isError);
+}
+
 async function signIn() {
   const email = $("#accountEmailInput").value.trim().toLowerCase();
   const password = $("#accountPasswordInput").value;
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    formError.textContent = "계정 이메일을 확인하세요.";
+    setAccountFeedback("계정 이메일을 확인하세요.", true);
     return;
   }
   if (password.length < 6) {
-    formError.textContent = "비밀번호는 6자 이상으로 입력하세요.";
+    setAccountFeedback("비밀번호는 6자 이상으로 입력하세요.", true);
     return;
   }
-  if (!canUseServer) {
-    formError.textContent = "계정 저장은 서버로 접속했을 때 사용할 수 있습니다.";
+  if (!supabaseClient) {
+    setAccountFeedback("동기화 서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요.", true);
     return;
   }
 
-  try {
-    formError.textContent = "";
-    syncMessage = "로그인 중...";
-    renderPersistenceStatus();
-    const payload = await apiJson("/api/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password, state }),
-    });
-    syncMessage = "";
-    applySignedInState(payload);
-    resetForm();
-    renderAll();
-  } catch (error) {
-    syncMessage = "";
-    formError.textContent = error.message;
-    renderPersistenceStatus();
+  setAccountFeedback("로그인 중...");
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (!error) {
+    await handleSignedIn(data.session);
+    setAccountFeedback("로그인됨 · 기기 간 동기화 활성");
+    return;
   }
+
+  if (!/invalid login credentials/i.test(error.message)) {
+    setAccountFeedback(error.message, true);
+    return;
+  }
+
+  setAccountFeedback("가입 처리 중...");
+  const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({ email, password });
+  if (signUpError) {
+    setAccountFeedback(signUpError.message, true);
+    return;
+  }
+  if (!signUpData.session) {
+    setAccountFeedback("가입 확인 메일을 보냈습니다. 메일 인증 후 다시 로그인하세요.");
+    return;
+  }
+  await handleSignedIn(signUpData.session);
+  setAccountFeedback("가입 완료 · 기기 간 동기화 활성");
 }
 
 async function signOut() {
-  if (canUseServer) {
+  if (supabaseClient) {
     try {
-      await apiJson("/api/logout", { method: "POST", body: "{}" });
+      await supabaseClient.auth.signOut();
     } catch {
-      // Keep local sign-out responsive even if the server session already expired.
+      // Keep local sign-out responsive even if the session already expired.
     }
   }
   state.account = null;
   state.userId = null;
   state.sync = { provider: "local", lastSyncedAt: null };
   $("#accountPasswordInput").value = "";
+  setAccountFeedback("로그아웃됨 · 이 기기에만 저장됩니다.");
   renderAll();
 }
 
@@ -1715,7 +1747,7 @@ completeGithubLogin();
 if (getGithubToken()) hydrateGithubUser().catch(() => logoutGithub());
 registerServiceWorker();
 renderAll();
-restoreServerSession();
+restoreCloudSession();
 setInterval(() => {
   renderClock();
   updateCurrentTime();
