@@ -122,6 +122,11 @@ let lastSave = null;
 let serverSyncTimer = null;
 let syncMessage = "";
 const canUseServer = location.protocol !== "file:";
+// Supabase publishable key는 공개용으로 설계된 값이며 RLS 정책으로 데이터가 보호된다.
+const SUPABASE_URL = window.RoundayConfig?.supabaseUrl || "https://gituezwfvthzmsocluoj.supabase.co";
+const SUPABASE_KEY = window.RoundayConfig?.supabaseKey || "sb_publishable_70g959Itw-fNg4gM_Iybmg_MQnw6VY9";
+const supabaseClient =
+  typeof window.supabase?.createClient === "function" ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 function getGithubConfig() {
   try {
