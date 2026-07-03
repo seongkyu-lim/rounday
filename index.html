@@ -78,14 +78,15 @@
           </div>
         </section>
 
-        <details class="panel compact settings-panel" hidden data-archived="account">
+        <details class="panel compact settings-panel">
           <summary>
-            <span>계정</span>
-            <span id="accountState">오프라인</span>
+            <span>계정 동기화</span>
+            <span id="accountState">미로그인</span>
           </summary>
+          <p id="accountFeedback" class="panel-note">이메일로 가입하면 기기 간 동기화가 활성화됩니다. 처음 입력한 이메일은 자동으로 가입됩니다.</p>
           <label>
             이메일
-            <input id="accountEmailInput" type="email" placeholder="you@example.com" />
+            <input id="accountEmailInput" type="email" placeholder="you@example.com" autocomplete="email" />
           </label>
           <label>
             비밀번호

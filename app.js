@@ -121,7 +121,6 @@ function mergeDailyPlanMaps(stored, current) {
 let lastSave = null;
 let serverSyncTimer = null;
 let syncMessage = "";
-const canUseServer = location.protocol !== "file:";
 // Supabase publishable key는 공개용으로 설계된 값이며 RLS 정책으로 데이터가 보호된다.
 const SUPABASE_URL = window.RoundayConfig?.supabaseUrl || "https://gituezwfvthzmsocluoj.supabase.co";
 const SUPABASE_KEY = window.RoundayConfig?.supabaseKey || "sb_publishable_70g959Itw-fNg4gM_Iybmg_MQnw6VY9";
@@ -859,7 +858,7 @@ function renderPersistenceStatus() {
 function renderAccountControls() {
   if (!$("#accountState")) return;
   const signedIn = Boolean(state.account?.email);
-  $("#accountState").textContent = signedIn ? "로그인됨" : "오프라인";
+  $("#accountState").textContent = signedIn ? "로그인됨" : "미로그인";
   $("#accountEmailInput").value = state.account?.email || "";
   $("#accountPasswordInput").value = "";
   $("#signOutBtn").disabled = !signedIn;
@@ -1393,53 +1392,69 @@ function logoutGithub() {
   renderGithubControls();
 }
 
+function setAccountFeedback(message, isError = false) {
+  const note = $("#accountFeedback");
+  if (!note) return;
+  note.textContent = message;
+  note.classList.toggle("danger-text", isError);
+}
+
 async function signIn() {
   const email = $("#accountEmailInput").value.trim().toLowerCase();
   const password = $("#accountPasswordInput").value;
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    formError.textContent = "계정 이메일을 확인하세요.";
+    setAccountFeedback("계정 이메일을 확인하세요.", true);
     return;
   }
   if (password.length < 6) {
-    formError.textContent = "비밀번호는 6자 이상으로 입력하세요.";
+    setAccountFeedback("비밀번호는 6자 이상으로 입력하세요.", true);
     return;
   }
-  if (!canUseServer) {
-    formError.textContent = "계정 저장은 서버로 접속했을 때 사용할 수 있습니다.";
+  if (!supabaseClient) {
+    setAccountFeedback("동기화 서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요.", true);
     return;
   }
 
-  try {
-    formError.textContent = "";
-    syncMessage = "로그인 중...";
-    renderPersistenceStatus();
-    const payload = await apiJson("/api/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password, state }),
-    });
-    syncMessage = "";
-    applySignedInState(payload);
-    resetForm();
-    renderAll();
-  } catch (error) {
-    syncMessage = "";
-    formError.textContent = error.message;
-    renderPersistenceStatus();
+  setAccountFeedback("로그인 중...");
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (!error) {
+    await handleSignedIn(data.session);
+    setAccountFeedback("로그인됨 · 기기 간 동기화 활성");
+    return;
   }
+
+  if (!/invalid login credentials/i.test(error.message)) {
+    setAccountFeedback(error.message, true);
+    return;
+  }
+
+  setAccountFeedback("가입 처리 중...");
+  const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({ email, password });
+  if (signUpError) {
+    setAccountFeedback(signUpError.message, true);
+    return;
+  }
+  if (!signUpData.session) {
+    setAccountFeedback("가입 확인 메일을 보냈습니다. 메일 인증 후 다시 로그인하세요.");
+    return;
+  }
+  await handleSignedIn(signUpData.session);
+  setAccountFeedback("가입 완료 · 기기 간 동기화 활성");
 }
 
 async function signOut() {
-  if (canUseServer) {
+  if (supabaseClient) {
     try {
-      await apiJson("/api/logout", { method: "POST", body: "{}" });
+      await supabaseClient.auth.signOut();
     } catch {
-      // Keep local sign-out responsive even if the server session already expired.
+      // Keep local sign-out responsive even if the session already expired.
     }
   }
   state.account = null;
   state.userId = null;
   state.sync = { provider: "local", lastSyncedAt: null };
   $("#accountPasswordInput").value = "";
+  setAccountFeedback("로그아웃됨 · 이 기기에만 저장됩니다.");
   renderAll();
 }
 
